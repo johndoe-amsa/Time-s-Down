@@ -195,6 +195,22 @@ const ROUNDS = [
   { name: "Mime",              rule: "Aucune parole : tu dois faire deviner uniquement en mimant." },
 ];
 
+// Banque de secours : pioche aléatoire si un joueur sèche.
+const WORD_BANK = [
+  "Tour Eiffel", "Astérix", "Pizza", "Licorne", "Napoléon", "Guitare",
+  "Volcan", "Spaghetti", "Pingouin", "Boomerang", "Dracula", "Croissant",
+  "Pyramide", "Aspirateur", "Cendrillon", "Sirène", "Tournesol", "Robot",
+  "Yéti", "Boussole", "Tarzan", "Caméléon", "Parachute", "Mojito",
+  "Sorcière", "Hamster", "Tornade", "Toboggan", "Pinocchio", "Méduse",
+  "Trampoline", "Vampire", "Accordéon", "Fantôme", "Kangourou", "Igloo",
+  "Mousquetaire", "Escargot", "Cactus", "Pirate", "Marmotte", "Boomerang",
+  "Lutin", "Hippopotame", "Phare", "Dinosaure", "Brouette", "Karaoké",
+  "Chevalier", "Flamant rose", "Montgolfière", "Cornichon", "Squelette",
+  "Trésor", "Loup-garou", "Saxophone", "Tortue", "Aimant", "Épouvantail",
+  "Catapulte", "Lasagne", "Caravane", "Hérisson", "Bibliothèque", "Confetti",
+  "Mammouth", "Funambule", "Boule à neige", "Perroquet", "Sous-marin", "Gargouille",
+];
+
 /* ---------- State ---------- */
 let S = null;
 
@@ -218,6 +234,7 @@ function freshState() {
     snapshots: [],           // undo stack (JSON strings) for current turn
     teamPos: 0,              // index into teams = team currently playing
     timeLeft: 0,
+    paused: false,
     roundJustFinished: false,
   };
 }
@@ -266,6 +283,56 @@ function shuffle(arr) {
   return a;
 }
 function vibrate(ms) { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) {} }
+
+/* ---------- Audio (Web Audio, no asset files) ---------- */
+let actx = null;
+function unlockAudio() {
+  try {
+    if (!actx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) actx = new AC();
+    }
+    if (actx && actx.state === "suspended") actx.resume();
+  } catch (e) {}
+}
+function tone(kind) {
+  try {
+    if (!actx) return;
+    const now = actx.currentTime;
+    const o = actx.createOscillator();
+    const g = actx.createGain();
+    o.connect(g); g.connect(actx.destination);
+    let f = 660, d = 0.09, type = "square", vol = 0.18;
+    if (kind === "tick")       { f = 600; d = 0.06; }
+    else if (kind === "go")    { f = 980; d = 0.28; type = "triangle"; vol = 0.22; }
+    else if (kind === "found") { f = 880; d = 0.16; type = "triangle"; vol = 0.20; }
+    else if (kind === "buzz")  { f = 150; d = 0.65; type = "sawtooth"; vol = 0.26; }
+    o.type = type;
+    o.frequency.value = f;
+    g.gain.setValueAtTime(vol, now);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + d);
+    o.start(now);
+    o.stop(now + d + 0.02);
+  } catch (e) {}
+}
+
+/* ---------- Wake Lock (keep screen on during a turn) ---------- */
+let wakeLock = null;
+async function requestWakeLock() {
+  try {
+    if ("wakeLock" in navigator) wakeLock = await navigator.wakeLock.request("screen");
+  } catch (e) {}
+}
+function releaseWakeLock() {
+  try { if (wakeLock) { wakeLock.release(); wakeLock = null; } } catch (e) {}
+}
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && S &&
+      (S.screen === "playing" || S.screen === "countdown") && !S.paused && !wakeLock) {
+    requestWakeLock();
+  }
+});
+function normWord(s) { return String(s).trim().toLowerCase().replace(/\s+/g, " "); }
 function wordText(id) { const w = S.words.find(x => x.id === id); return w ? w.text : "?"; }
 function playerName(id) { const p = S.players.find(x => x.id === id); return p ? p.name : "?"; }
 function currentTeam() { return S.teams[S.teamPos]; }
@@ -284,10 +351,12 @@ function startTimer() {
     if (S.timeLeft <= 0) {
       S.timeLeft = 0;
       stopTimer();
+      tone("buzz");
       vibrate([120, 60, 120]);
       endTurn(false);
     } else {
       save();
+      if (S.timeLeft <= 5) tone("tick");
       const t = $("#timer");
       if (t) {
         t.textContent = S.timeLeft;
@@ -439,6 +508,9 @@ function renderTeams() {
 /* ============================================================
    WORD ENTRY (private, pass the phone)
    ============================================================ */
+let pendingEntry = null;     // values awaiting the player's confirmation
+let entryStage = "edit";     // "edit" | "confirm"
+
 function renderWordEntryGate() {
   const p = S.players[S.entryIndex];
   const c = el("div", { class: "screen center" });
@@ -450,17 +522,51 @@ function renderWordEntryGate() {
     el("p", { class: "hint", style: "margin:0 0 12px" },
       "Joueur " + (S.entryIndex + 1) + " / " + S.players.length +
       " · " + S.wordsPerPlayer + " mots à saisir"),
-    el("button", { onclick: () => { S.screen = "wordEntryForm"; save(); render(); } },
-      "Je suis " + p.name + ", c'est parti →")
+    el("button", {
+      onclick: () => {
+        pendingEntry = null; entryStage = "edit";
+        S.screen = "wordEntryForm"; save(); render();
+      }
+    }, "Je suis " + p.name + ", c'est parti →")
   ));
   c.appendChild(el("div", { class: "spacer" }));
   return c;
+}
+
+function commitEntry(vals) {
+  vals.forEach(v => S.words.push({ id: uid(), text: v }));
+  pendingEntry = null;
+  entryStage = "edit";
+  S.entryIndex++;
+  if (S.entryIndex >= S.players.length) startNewRound(0, true);
+  else S.screen = "wordEntryGate";
+  save();
+  render();
 }
 
 function renderWordEntryForm() {
   const p = S.players[S.entryIndex];
   const c = el("div", { class: "screen" });
   c.appendChild(el("h2", {}, "À toi, " + p.name));
+
+  /* ----- Confirmation step: re-read before validating ----- */
+  if (entryStage === "confirm" && pendingEntry) {
+    c.appendChild(el("p", {}, "Relis bien tes mots avant de valider."));
+    const list = el("div", { class: "card" });
+    pendingEntry.forEach((w, i) => {
+      list.appendChild(el("div", { class: "recap-item" },
+        el("span", { class: "hint", style: "margin:0 10px 0 0" }, String(i + 1)),
+        el("span", { class: "w" }, w)));
+    });
+    c.appendChild(list);
+    c.appendChild(el("div", { class: "card btn-stack" },
+      el("button", { class: "good", onclick: () => commitEntry(pendingEntry.slice()) }, "Confirmer ✓"),
+      el("button", { class: "ghost", onclick: () => { entryStage = "edit"; render(); } }, "← Modifier")
+    ));
+    return c;
+  }
+
+  /* ----- Edit step ----- */
   c.appendChild(el("p", {}, "Écris " + S.wordsPerPlayer +
     " mots ou expressions. Ils seront mélangés avec ceux des autres — personne ne saura qui a écrit quoi."));
 
@@ -469,7 +575,8 @@ function renderWordEntryForm() {
   for (let i = 0; i < S.wordsPerPlayer; i++) {
     const inp = el("input", {
       type: "text", placeholder: "Mot " + (i + 1), autocomplete: "off",
-      autocapitalize: "none", style: "margin-bottom:10px"
+      autocapitalize: "none", style: "margin-bottom:10px",
+      value: (pendingEntry && pendingEntry[i]) || ""
     });
     inp.addEventListener("keydown", e => {
       if (e.key === "Enter" && inputs[i + 1]) inputs[i + 1].focus();
@@ -481,6 +588,23 @@ function renderWordEntryForm() {
   const err = el("p", { class: "err" });
   c.appendChild(err);
 
+  // Built-in word bank: fills the first empty field with an unused word.
+  c.appendChild(el("button", {
+    class: "ghost", style: "margin-bottom:10px",
+    onclick: () => {
+      const slot = inputs.find(i => !i.value.trim());
+      if (!slot) { err.textContent = "Tous tes champs sont déjà remplis."; return; }
+      const used = new Set([
+        ...S.words.map(w => normWord(w.text)),
+        ...inputs.map(i => normWord(i.value)).filter(Boolean),
+      ]);
+      const pool = WORD_BANK.filter(w => !used.has(normWord(w)));
+      if (!pool.length) { err.textContent = "Plus de mots disponibles dans la banque."; return; }
+      slot.value = pool[Math.floor(Math.random() * pool.length)];
+      err.textContent = "";
+    }
+  }, "💡 Suggérer un mot (banque)"));
+
   c.appendChild(el("button", {
     onclick: () => {
       const vals = inputs.map(i => i.value.trim()).filter(Boolean);
@@ -488,19 +612,26 @@ function renderWordEntryForm() {
         err.textContent = "Remplis les " + S.wordsPerPlayer + " mots (" + vals.length + " saisis).";
         return;
       }
-      const lower = vals.map(v => v.toLowerCase());
-      if (new Set(lower).size !== lower.length) {
+      const norm = vals.map(normWord);
+      if (new Set(norm).size !== norm.length) {
         err.textContent = "Tu as écrit deux fois le même mot.";
         return;
       }
-      vals.forEach(v => S.words.push({ id: uid(), text: v }));
-      S.entryIndex++;
-      if (S.entryIndex >= S.players.length) startNewRound(0, true);
-      else S.screen = "wordEntryGate";
-      save(); render();
+      const taken = new Set(S.words.map(w => normWord(w.text)));
+      const clash = vals.find(v => taken.has(normWord(v)));
+      if (clash) {
+        err.textContent = "« " + clash + " » a déjà été proposé par un autre joueur. Change-le.";
+        return;
+      }
+      pendingEntry = vals;
+      entryStage = "confirm";
+      render();
     }
   }, "Valider mes mots ✓"));
-  setTimeout(() => { if (inputs[0]) inputs[0].focus(); }, 30);
+  setTimeout(() => {
+    const first = inputs.find(i => !i.value.trim()) || inputs[0];
+    if (first && first.focus) first.focus();
+  }, 30);
   return c;
 }
 
@@ -516,10 +647,67 @@ function startNewRound(roundIndex, fromSetup) {
   S.screen = "roundIntro";
 }
 
+/* Persistent scoreboard + "à suivre" banner. */
+function scoreboardHeader(opts) {
+  opts = opts || {};
+  const wrap = el("div", { class: "card", style: "padding:12px;margin-bottom:12px" });
+  const row = el("div", { style: "display:flex;gap:8px;flex-wrap:wrap" });
+  S.teams.forEach((t, i) => {
+    const active = i === S.teamPos;
+    row.appendChild(el("div", {
+      style: "flex:1;min-width:84px;text-align:center;padding:8px 6px;border-radius:10px;" +
+        "background:rgba(0,0,0,.2);border:2px solid " + (active ? t.color : "transparent")
+    },
+      el("div", {
+        style: "font-size:.78rem;color:var(--muted);font-weight:700;white-space:nowrap;" +
+          "overflow:hidden;text-overflow:ellipsis"
+      }, (active ? "▶ " : "") + t.name),
+      el("div", { style: "font-size:1.4rem;font-weight:800" }, String(t.score))
+    ));
+  });
+  wrap.appendChild(row);
+  if (!opts.compact && S.teams.length) {
+    const nt = S.teams[(S.teamPos + 1) % S.teams.length];
+    const nd = playerName(nt.playerIds[nt.descPtr % nt.playerIds.length]);
+    wrap.appendChild(el("div", { class: "hint", style: "margin:8px 0 0;text-align:center" },
+      "À suivre : " + nt.name + " — " + nd));
+  }
+  return wrap;
+}
+
+function renderCountdown() {
+  const c = el("div", { class: "screen center" });
+  c.appendChild(scoreboardHeader({ compact: true }));
+  c.appendChild(el("div", { class: "spacer" }));
+  c.appendChild(el("p", {}, "Prépare-toi, " + playerName(currentDescriberId())));
+  const num = el("div", { class: "big-num", style: "font-size:6rem;color:var(--accent);margin:10px 0" }, "3");
+  c.appendChild(num);
+  c.appendChild(el("p", { class: "hint" }, ROUNDS[S.roundIndex].name));
+  c.appendChild(el("div", { class: "spacer" }));
+
+  let n = 3;
+  stopCountdown();
+  tone("tick");
+  countdownHandle = setInterval(() => {
+    n--;
+    if (n > 0) {
+      num.textContent = String(n);
+      tone("tick");
+    } else {
+      num.textContent = "GO !";
+      tone("go");
+      stopCountdown();
+      setTimeout(startPlaying, 450);
+    }
+  }, 1000);
+  return c;
+}
+
 function renderRoundIntro() {
   const r = ROUNDS[S.roundIndex];
   const t = currentTeam();
   const c = el("div", { class: "screen center" });
+  c.appendChild(scoreboardHeader());
   c.appendChild(el("div", { class: "spacer" }));
   c.appendChild(el("span", { class: "pill" }, "Manche " + (S.roundIndex + 1) + " / " + ROUNDS.length));
   c.appendChild(el("h1", { style: "margin:14px 0 6px" }, r.name));
@@ -540,6 +728,7 @@ function renderTurnReady() {
   const describer = playerName(currentDescriberId());
   const r = ROUNDS[S.roundIndex];
   const c = el("div", { class: "screen center" });
+  c.appendChild(scoreboardHeader());
   c.appendChild(el("div", { class: "spacer" }));
   c.appendChild(el("span", { class: "pill" }, "Manche " + (S.roundIndex + 1) + " · " + r.name));
   c.appendChild(el("div", { style: "margin:18px 0 4px" },
@@ -559,12 +748,39 @@ function renderTurnReady() {
 }
 
 function beginTurn() {
+  unlockAudio();          // user gesture (JOUER tap) unlocks mobile audio
+  requestWakeLock();
   S.pile = shuffle(S.roundRemaining.slice());
   S.currentWordId = S.pile.length ? S.pile.shift() : null;
   S.turnFound = [];
   S.snapshots = [];
   S.timeLeft = S.turnSeconds;
+  S.paused = false;
+  S.screen = "countdown";
+  save();
+  render();
+}
+
+let countdownHandle = null;
+function stopCountdown() { if (countdownHandle) { clearInterval(countdownHandle); countdownHandle = null; } }
+function startPlaying() {
   S.screen = "playing";
+  save();
+  render();
+  startTimer();
+}
+
+function pauseTurn() {
+  stopTimer();
+  S.paused = true;
+  releaseWakeLock();
+  save();
+  render();
+}
+function resumeTurn() {
+  unlockAudio();
+  requestWakeLock();
+  S.paused = false;
   save();
   render();
   startTimer();
@@ -589,6 +805,7 @@ function actionFound() {
   S.turnFound.push(id);
   S.roundRemaining = S.roundRemaining.filter(x => x !== id);
   currentTeam().score++;
+  tone("found");
   vibrate(40);
   serveNext();
   save();
@@ -623,6 +840,8 @@ function actionUndo() {
 
 function endTurn(roundCleared) {
   stopTimer();
+  releaseWakeLock();
+  S.paused = false;
   S.roundJustFinished = !!roundCleared;
   // an in-progress word that was never resolved stays available next turn
   S.screen = "turnRecap";
@@ -631,15 +850,25 @@ function endTurn(roundCleared) {
 }
 
 function renderPlaying() {
-  const t = currentTeam();
   const c = el("div", { class: "screen" });
+  c.appendChild(scoreboardHeader({ compact: true }));
+  c.appendChild(el("div", { class: "center", style: "margin-bottom:6px" },
+    el("span", { class: "pill" }, "Manche " + (S.roundIndex + 1) + " · " + ROUNDS[S.roundIndex].name)));
 
-  c.appendChild(el("div", { style: "display:flex;align-items:center;justify-content:space-between;margin-bottom:6px" },
-    el("span", { class: "pill" },
-      el("span", { class: "dot", style: "background:" + t.color }),
-      el("span", {}, t.name)),
-    el("span", { class: "pill" }, "M" + (S.roundIndex + 1) + " · " + ROUNDS[S.roundIndex].name)
-  ));
+  if (S.paused) {
+    c.appendChild(el("div", { class: "spacer" }));
+    c.appendChild(el("div", { class: "center" },
+      el("div", { class: "big-num", style: "font-size:2rem;color:var(--muted)" }, "⏸ EN PAUSE")));
+    c.appendChild(el("p", { class: "hint center" },
+      "Le mot est masqué. Reste " + S.timeLeft + "s · " +
+      S.turnFound.length + " trouvé(s) ce tour."));
+    c.appendChild(el("div", { class: "spacer" }));
+    c.appendChild(el("div", { class: "btn-stack" },
+      el("button", { class: "good", onclick: resumeTurn }, "▶ Reprendre"),
+      el("button", { class: "ghost", onclick: () => endTurn(false) }, "■ Terminer le tour")
+    ));
+    return c;
+  }
 
   c.appendChild(el("div", { class: "center" },
     el("span", { id: "timer", class: "big-num timer" + (S.timeLeft <= 10 ? " low" : ""), style: "font-size:3rem" },
@@ -661,7 +890,8 @@ function renderPlaying() {
     el("div", { class: "row" },
       el("button", { class: "neutral", id: "btn-pass", onclick: actionPass }, "↷ Passe"),
       el("button", { class: "secondary", id: "btn-undo", disabled: !S.snapshots.length, onclick: actionUndo }, "↶ Annuler")
-    )
+    ),
+    el("button", { class: "ghost", onclick: pauseTurn }, "⏸ Pause")
   ));
   return c;
 }
@@ -687,6 +917,7 @@ function updatePlaying() {
 function renderTurnRecap() {
   const t = currentTeam();
   const c = el("div", { class: "screen" });
+  c.appendChild(scoreboardHeader());
   c.appendChild(el("h2", {}, S.roundJustFinished ? "Manche terminée !" : "Fin du tour"));
   c.appendChild(el("p", {},
     el("span", { class: "pill" },
@@ -823,8 +1054,11 @@ function renderResume(saved) {
     el("button", {
       onclick: () => {
         S = saved;
-        // never resume directly into a running timer
-        if (S.screen === "playing") S.screen = "turnReady";
+        // never resume directly into a running timer / countdown
+        if (S.screen === "playing" || S.screen === "countdown") {
+          S.paused = false;
+          S.screen = "turnReady";
+        }
         render();
       }
     }, "Reprendre la partie"),
@@ -855,6 +1089,7 @@ function render() {
     case "wordEntryForm":  view = renderWordEntryForm(); break;
     case "roundIntro":     view = renderRoundIntro(); break;
     case "turnReady":      view = renderTurnReady(); break;
+    case "countdown":      view = renderCountdown(); break;
     case "playing":        view = renderPlaying(); break;
     case "turnRecap":      view = renderTurnRecap(); break;
     case "gameOver":       view = renderGameOver(); break;
