@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 <meta name="theme-color" content="#140d33">
 <meta name="description" content="Time's Down — le jeu de mots à se passer entre amis.">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -41,7 +41,7 @@
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   *:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
-  html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+  html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; background: var(--bg); }
   html, body { height: 100%; overflow: hidden; margin: 0; padding: 0; }
   body {
     font-family: var(--font-body);
@@ -489,6 +489,9 @@ document.addEventListener("visibilitychange", () => {
     requestWakeLock();
   }
 });
+// Disable pinch-zoom on iOS Safari (ignores user-scalable=no).
+["gesturestart", "gesturechange", "gestureend"].forEach(ev =>
+  document.addEventListener(ev, e => e.preventDefault(), { passive: false }));
 function normWord(s) { return String(s).trim().toLowerCase().replace(/\s+/g, " "); }
 function wordText(id) { const w = S.words.find(x => x.id === id); return w ? w.text : "?"; }
 function playerName(id) { const p = S.players.find(x => x.id === id); return p ? p.name : "?"; }
@@ -588,31 +591,21 @@ function renderSetup() {
   pCard.appendChild(addErr);
   c.appendChild(pCard);
 
-  /* Settings */
+  /* Settings — steppers update in place, no full re-render */
   const sCard = el("div", { class: "card" });
   sCard.appendChild(el("h3", {}, "Réglages"));
   sCard.appendChild(stepper("Nombre d'équipes", S.nbTeams, 2, Math.max(2, S.players.length || 2),
-    v => { S.nbTeams = v; save(); render(); }));
+    v => { S.nbTeams = v; save(); refreshStart(); }));
   sCard.appendChild(stepper("Mots par joueur", S.wordsPerPlayer, 1, 12,
-    v => { S.wordsPerPlayer = v; save(); render(); }));
+    v => { S.wordsPerPlayer = v; save(); refreshStart(); }));
   sCard.appendChild(stepper("Secondes par tour", S.turnSeconds, 15, 120,
-    v => { S.turnSeconds = v; save(); render(); }, 5));
+    v => { S.turnSeconds = v; save(); refreshStart(); }, 5));
   c.appendChild(sCard);
 
   /* Validation + start */
-  const need = [];
-  if (S.players.length < 2) need.push("Ajoute au moins 2 joueurs.");
-  if (S.players.length < S.nbTeams) need.push("Il faut au moins autant de joueurs que d'équipes.");
   const startCard = el("div", { class: "card" });
-  if (need.length) {
-    startCard.appendChild(el("p", { class: "hint" }, need.join(" ")));
-  } else {
-    const total = S.players.length * S.wordsPerPlayer;
-    startCard.appendChild(el("p", { class: "hint" },
-      total + " mots au total · " + S.nbTeams + " équipes · " + S.turnSeconds + "s par tour"));
-  }
-  startCard.appendChild(el("button", {
-    disabled: need.length > 0,
+  const startHint = el("p", { class: "hint" });
+  const startBtn = el("button", {
     onclick: () => {
       buildTeams();
       S.words = [];
@@ -620,8 +613,26 @@ function renderSetup() {
       S.screen = "teams";
       save(); render();
     }
-  }, "Former les équipes →"));
+  }, "Former les équipes →");
+  startCard.appendChild(startHint);
+  startCard.appendChild(startBtn);
   c.appendChild(startCard);
+
+  function refreshStart() {
+    const need = [];
+    if (S.players.length < 2) need.push("Ajoute au moins 2 joueurs.");
+    if (S.players.length < S.nbTeams) need.push("Il faut au moins autant de joueurs que d'équipes.");
+    if (need.length) {
+      startHint.textContent = need.join(" ");
+      startBtn.disabled = true;
+    } else {
+      const total = S.players.length * S.wordsPerPlayer;
+      startHint.textContent =
+        total + " mots au total · " + S.nbTeams + " équipes · " + S.turnSeconds + "s par tour";
+      startBtn.disabled = false;
+    }
+  }
+  refreshStart();
 
   c.appendChild(el("p", { class: "footer-note" }, "Tout reste sur cet appareil. Passez-le de main en main."));
   return c;
@@ -629,13 +640,29 @@ function renderSetup() {
 
 function stepper(labelTxt, value, min, max, onChange, step) {
   step = step || 1;
+  let val = value;
   const wrap = el("div", { style: "margin-bottom:14px" });
   wrap.appendChild(el("label", {}, labelTxt));
-  const valEl = el("span", { class: "val" }, String(value));
+  const valEl = el("span", { class: "val" }, String(val));
+  const minus = el("button", { class: "secondary press" }, "−");
+  const plus  = el("button", { class: "secondary press" }, "+");
+  function set(nv) {
+    nv = Math.max(min, Math.min(max, nv));
+    if (nv === val) return;
+    val = nv;
+    valEl.textContent = String(val);
+    minus.disabled = val <= min;
+    plus.disabled  = val >= max;
+    onChange(val);
+  }
+  minus.addEventListener("click", () => set(val - step));
+  plus.addEventListener("click", () => set(val + step));
+  minus.disabled = val <= min;
+  plus.disabled  = val >= max;
   wrap.appendChild(el("div", { class: "stepper" },
-    el("button", { class: "secondary", onclick: () => onChange(Math.max(min, value - step)) }, "−"),
+    minus,
     valEl,
-    el("button", { class: "secondary", onclick: () => onChange(Math.min(max, value + step)) }, "+"),
+    plus,
     el("span", { class: "hint", style: "margin-left:10px" }, "(" + min + "–" + max + ")")
   ));
   return wrap;
