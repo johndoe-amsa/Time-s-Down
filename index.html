@@ -2,12 +2,16 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 <meta name="theme-color" content="#140d33">
 <meta name="description" content="Time's Down — le jeu de mots à se passer entre amis.">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Time's Down">
+<meta name="application-name" content="Time's Down">
+<link rel="manifest" id="manifest-link">
+<link rel="apple-touch-icon" id="apple-icon-link">
 <title>Time's Down — Jeu de mots</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -37,12 +41,11 @@
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   *:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
-  html { height: 100%; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
-  html, body { margin: 0; padding: 0; }
+  html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; background: var(--bg); }
+  html, body { height: 100%; overflow: hidden; margin: 0; padding: 0; }
   body {
     font-family: var(--font-body);
     color: var(--text);
-    min-height: 100dvh;
     overscroll-behavior: none;
     -webkit-font-smoothing: antialiased;
     background:
@@ -56,12 +59,15 @@
     width: 100%;
     max-width: 480px;
     margin: 0 auto;
+    height: 100%;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
     padding:
       calc(var(--s4) + env(safe-area-inset-top))
       calc(var(--s4) + env(safe-area-inset-right))
       calc(var(--s5) + env(safe-area-inset-bottom))
       calc(var(--s4) + env(safe-area-inset-left));
-    min-height: 100dvh;
     display: flex;
     flex-direction: column;
   }
@@ -89,8 +95,8 @@
     letter-spacing: .6px; font-size: .98rem;
   }
 
-  .screen { animation: fade .28s ease; flex: 1; display: flex; flex-direction: column; }
-  @keyframes fade { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  .screen { animation: screenIn .26s cubic-bezier(0.16, 1, 0.3, 1); flex: 1; display: flex; flex-direction: column; }
+  @keyframes screenIn { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: none; } }
   .center { text-align: center; }
   .spacer { flex: 1; min-height: var(--s3); }
 
@@ -105,7 +111,7 @@
   }
 
   label { display: block; font-size: .82rem; color: var(--muted); margin: 0 0 var(--s1); font-weight: 600; letter-spacing: .3px; }
-  input[type=text], input[type=number] {
+  input, select, textarea {
     width: 100%;
     padding: 15px 16px;
     font-size: 16px;
@@ -117,6 +123,10 @@
     outline: none;
     transition: border-color .15s ease, box-shadow .15s ease;
   }
+  button, a, input, select, textarea, [role="button"], .clickable {
+    touch-action: manipulation;
+  }
+  .press:active { transform: scale(0.97); transition: transform 80ms; }
   input::placeholder { color: var(--muted); opacity: .7; }
   input:focus { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(255,210,63,.18); }
 
@@ -169,7 +179,7 @@
   button.bad     { background: linear-gradient(180deg, #ff86a0, var(--bad) 55%, #e23a5d); color: #4a0a1c; }
   button.neutral { background: linear-gradient(180deg, #8e9bff, var(--neutral) 55%, #4a5bdc); color: #fff; }
   button.small {
-    width: auto; padding: 10px 16px; font-size: .9rem; min-height: 0;
+    width: auto; padding: 10px 16px; font-size: .9rem; min-height: 44px;
     border-radius: 12px; box-shadow: none;
   }
   .btn-stack > * { margin-top: var(--s3); }
@@ -196,8 +206,8 @@
   .player-line button { width: auto; flex: none; }
   .x-btn {
     background: transparent; color: var(--bad);
-    width: 36px; height: 36px; padding: 0; font-size: 1.2rem;
-    min-height: 0; box-shadow: none; border-radius: 10px;
+    width: 44px; height: 44px; padding: 0; font-size: 1.2rem;
+    min-height: 44px; box-shadow: none; border-radius: 12px;
   }
   .x-btn:active { transform: scale(.9); }
 
@@ -306,8 +316,20 @@
     .word-box { min-height: 130px; padding: 30px 18px; }
     .logo { margin-top: var(--s2); }
   }
+  @media (min-width: 768px) {
+    #app {
+      max-width: 600px;
+      padding-left: calc(32px + env(safe-area-inset-left));
+      padding-right: calc(32px + env(safe-area-inset-right));
+    }
+    h1 { font-size: 2.2rem; }
+    .logo { font-size: 3.4rem; }
+  }
   @media (prefers-reduced-motion: reduce) {
-    *, *::before { animation: none !important; transition: none !important; }
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 </style>
 </head>
@@ -467,6 +489,9 @@ document.addEventListener("visibilitychange", () => {
     requestWakeLock();
   }
 });
+// Disable pinch-zoom on iOS Safari (ignores user-scalable=no).
+["gesturestart", "gesturechange", "gestureend"].forEach(ev =>
+  document.addEventListener(ev, e => e.preventDefault(), { passive: false }));
 function normWord(s) { return String(s).trim().toLowerCase().replace(/\s+/g, " "); }
 function wordText(id) { const w = S.words.find(x => x.id === id); return w ? w.text : "?"; }
 function playerName(id) { const p = S.players.find(x => x.id === id); return p ? p.name : "?"; }
@@ -552,7 +577,7 @@ function renderSetup() {
       el("button", { class: "x-btn", onclick: () => { S.players = S.players.filter(x => x.id !== p.id); save(); render(); } }, "✕")
     ));
   });
-  const inp = el("input", { type: "text", placeholder: "Nom du joueur", autocomplete: "off" });
+  const inp = el("input", { type: "text", placeholder: "Nom du joueur", autocomplete: "off", autocapitalize: "words", enterkeyhint: "done" });
   const addErr = el("p", { class: "err" });
   inp.addEventListener("keydown", e => { if (e.key === "Enter") doAdd(); });
   function doAdd() {
@@ -566,31 +591,21 @@ function renderSetup() {
   pCard.appendChild(addErr);
   c.appendChild(pCard);
 
-  /* Settings */
+  /* Settings — steppers update in place, no full re-render */
   const sCard = el("div", { class: "card" });
   sCard.appendChild(el("h3", {}, "Réglages"));
   sCard.appendChild(stepper("Nombre d'équipes", S.nbTeams, 2, Math.max(2, S.players.length || 2),
-    v => { S.nbTeams = v; save(); render(); }));
+    v => { S.nbTeams = v; save(); refreshStart(); }));
   sCard.appendChild(stepper("Mots par joueur", S.wordsPerPlayer, 1, 12,
-    v => { S.wordsPerPlayer = v; save(); render(); }));
+    v => { S.wordsPerPlayer = v; save(); refreshStart(); }));
   sCard.appendChild(stepper("Secondes par tour", S.turnSeconds, 15, 120,
-    v => { S.turnSeconds = v; save(); render(); }, 5));
+    v => { S.turnSeconds = v; save(); refreshStart(); }, 5));
   c.appendChild(sCard);
 
   /* Validation + start */
-  const need = [];
-  if (S.players.length < 2) need.push("Ajoute au moins 2 joueurs.");
-  if (S.players.length < S.nbTeams) need.push("Il faut au moins autant de joueurs que d'équipes.");
   const startCard = el("div", { class: "card" });
-  if (need.length) {
-    startCard.appendChild(el("p", { class: "hint" }, need.join(" ")));
-  } else {
-    const total = S.players.length * S.wordsPerPlayer;
-    startCard.appendChild(el("p", { class: "hint" },
-      total + " mots au total · " + S.nbTeams + " équipes · " + S.turnSeconds + "s par tour"));
-  }
-  startCard.appendChild(el("button", {
-    disabled: need.length > 0,
+  const startHint = el("p", { class: "hint" });
+  const startBtn = el("button", {
     onclick: () => {
       buildTeams();
       S.words = [];
@@ -598,8 +613,26 @@ function renderSetup() {
       S.screen = "teams";
       save(); render();
     }
-  }, "Former les équipes →"));
+  }, "Former les équipes →");
+  startCard.appendChild(startHint);
+  startCard.appendChild(startBtn);
   c.appendChild(startCard);
+
+  function refreshStart() {
+    const need = [];
+    if (S.players.length < 2) need.push("Ajoute au moins 2 joueurs.");
+    if (S.players.length < S.nbTeams) need.push("Il faut au moins autant de joueurs que d'équipes.");
+    if (need.length) {
+      startHint.textContent = need.join(" ");
+      startBtn.disabled = true;
+    } else {
+      const total = S.players.length * S.wordsPerPlayer;
+      startHint.textContent =
+        total + " mots au total · " + S.nbTeams + " équipes · " + S.turnSeconds + "s par tour";
+      startBtn.disabled = false;
+    }
+  }
+  refreshStart();
 
   c.appendChild(el("p", { class: "footer-note" }, "Tout reste sur cet appareil. Passez-le de main en main."));
   return c;
@@ -607,13 +640,29 @@ function renderSetup() {
 
 function stepper(labelTxt, value, min, max, onChange, step) {
   step = step || 1;
+  let val = value;
   const wrap = el("div", { style: "margin-bottom:14px" });
   wrap.appendChild(el("label", {}, labelTxt));
-  const valEl = el("span", { class: "val" }, String(value));
+  const valEl = el("span", { class: "val" }, String(val));
+  const minus = el("button", { class: "secondary press" }, "−");
+  const plus  = el("button", { class: "secondary press" }, "+");
+  function set(nv) {
+    nv = Math.max(min, Math.min(max, nv));
+    if (nv === val) return;
+    val = nv;
+    valEl.textContent = String(val);
+    minus.disabled = val <= min;
+    plus.disabled  = val >= max;
+    onChange(val);
+  }
+  minus.addEventListener("click", () => set(val - step));
+  plus.addEventListener("click", () => set(val + step));
+  minus.disabled = val <= min;
+  plus.disabled  = val >= max;
   wrap.appendChild(el("div", { class: "stepper" },
-    el("button", { class: "secondary", onclick: () => onChange(Math.max(min, value - step)) }, "−"),
+    minus,
     valEl,
-    el("button", { class: "secondary", onclick: () => onChange(Math.min(max, value + step)) }, "+"),
+    plus,
     el("span", { class: "hint", style: "margin-left:10px" }, "(" + min + "–" + max + ")")
   ));
   return wrap;
@@ -629,7 +678,7 @@ function renderTeams() {
 
   S.teams.forEach(t => {
     const block = el("div", { class: "card team-block" });
-    const nameInput = el("input", { type: "text", value: t.name });
+    const nameInput = el("input", { type: "text", value: t.name, autocomplete: "off", autocapitalize: "words", enterkeyhint: "done" });
     nameInput.addEventListener("input", e => { t.name = e.target.value; save(); });
     block.appendChild(el("div", { class: "team-head" },
       el("span", { class: "dot", style: "background:" + t.color }),
@@ -720,7 +769,8 @@ function renderWordEntryForm() {
   for (let i = 0; i < S.wordsPerPlayer; i++) {
     const inp = el("input", {
       type: "text", placeholder: "Mot " + (i + 1), autocomplete: "off",
-      autocapitalize: "none", style: "margin-bottom:10px",
+      autocapitalize: "none", enterkeyhint: (i + 1 < S.wordsPerPlayer ? "next" : "done"),
+      style: "margin-bottom:10px",
       value: (pendingEntry && pendingEntry[i]) || ""
     });
     inp.addEventListener("keydown", e => {
@@ -1257,11 +1307,49 @@ function render() {
   }
   app.appendChild(view);
   if (S.screen === "playing" && !S.paused) updateTimerUI();
-  window.scrollTo(0, 0);
+  app.scrollTop = 0;
+}
+
+/* ---------- PWA (inline manifest + icon, no asset files) ---------- */
+function setupPWA() {
+  try {
+    const svg =
+      "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'>" +
+      "<rect width='512' height='512' rx='112' fill='#241657'/>" +
+      "<rect x='40' y='40' width='432' height='432' rx='84' fill='none' stroke='#ffd23f' stroke-width='16'/>" +
+      "<text x='256' y='338' font-family='system-ui,-apple-system,Segoe UI,Roboto,sans-serif' " +
+      "font-size='248' font-weight='700' text-anchor='middle' fill='#ffd23f'>TD</text></svg>";
+    const iconUri = "data:image/svg+xml," + encodeURIComponent(svg);
+
+    const appleLink = document.getElementById("apple-icon-link");
+    if (appleLink) appleLink.href = iconUri;
+
+    const manifest = {
+      name: "Time's Down",
+      short_name: "Time's Down",
+      description: "Le jeu de mots à se passer entre amis.",
+      start_url: ".",
+      scope: ".",
+      display: "standalone",
+      orientation: "portrait",
+      background_color: "#140d33",
+      theme_color: "#140d33",
+      icons: [
+        { src: iconUri, sizes: "any", type: "image/svg+xml", purpose: "any" },
+        { src: iconUri, sizes: "any", type: "image/svg+xml", purpose: "maskable" }
+      ]
+    };
+    const mLink = document.getElementById("manifest-link");
+    if (mLink) {
+      const blob = new Blob([JSON.stringify(manifest)], { type: "application/manifest+json" });
+      mLink.href = URL.createObjectURL(blob);
+    }
+  } catch (e) {}
 }
 
 /* ---------- boot ---------- */
 (function boot() {
+  setupPWA();
   const saved = load();
   if (saved && saved.screen && saved.screen !== "setup") {
     const app = $("#app");
