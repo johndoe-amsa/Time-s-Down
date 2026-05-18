@@ -1540,7 +1540,7 @@ function renderResume(saved) {
         render();
       }
     }, icon("play", 18), " Reprendre la partie"),
-    el("button", { class: "ghost", onclick: () => { clearSave(); S = freshState(); render(); } },
+    el("button", { class: "ghost", onclick: newGame },
       icon("rotate-ccw", 16), " Nouvelle partie")
   ));
   c.appendChild(el("div", { class: "spacer" }));
@@ -1629,6 +1629,15 @@ function setupPWA() {
   } else {
     S = saved && saved.screen === "setup" ? saved : freshState();
     render();
+  }
+
+  // The inline script runs before the deferred Lucide library, so the
+  // first render finds `lucide` undefined and draws no icons. Redraw them
+  // once Lucide is loaded (deferred scripts run before DOMContentLoaded).
+  function drawIcons() { try { if (typeof lucide !== "undefined") lucide.createIcons(); } catch (e) {} }
+  if (typeof lucide === "undefined") {
+    document.addEventListener("DOMContentLoaded", drawIcons);
+    window.addEventListener("load", drawIcons);
   }
 })();
 </script>
