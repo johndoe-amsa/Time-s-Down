@@ -975,7 +975,6 @@ function scoreboardHeader(opts) {
 
 function renderCountdown() {
   const c = el("div", { class: "screen center" });
-  c.appendChild(scoreboardHeader({ compact: true }));
   c.appendChild(el("div", { class: "spacer" }));
   c.appendChild(el("p", {}, "Prépare-toi, " + playerName(currentDescriberId())));
   const num = el("div", { class: "big-num", style: "font-size:6rem;color:var(--accent);margin:10px 0" }, "3");
@@ -1025,7 +1024,6 @@ function renderTurnReady() {
   const describer = playerName(currentDescriberId());
   const r = roundDef(S.roundIndex);
   const c = el("div", { class: "screen center" });
-  c.appendChild(scoreboardHeader());
   c.appendChild(el("div", { class: "spacer" }));
   c.appendChild(el("span", { class: "pill" }, "Manche " + (S.roundIndex + 1) + " · " + r.name));
   c.appendChild(el("div", { style: "margin:18px 0 4px" },
@@ -1162,7 +1160,6 @@ function rollbackTurn() {
 
 function renderPlaying() {
   const c = el("div", { class: "screen" });
-  c.appendChild(scoreboardHeader({ compact: true }));
 
   if (S.paused) {
     c.appendChild(el("div", { class: "spacer" }));
