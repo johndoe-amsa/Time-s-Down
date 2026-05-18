@@ -1013,18 +1013,46 @@ function renderTurnReady() {
   const describer = playerName(currentDescriberId());
   const r = roundDef(S.roundIndex);
   const c = el("div", { class: "screen center" });
-  c.appendChild(scoreboardHeader());
+
+  c.appendChild(scoreboardHeader({ compact: true }));
   c.appendChild(el("div", { class: "spacer" }));
-  c.appendChild(el("span", { class: "pill" }, "Manche " + (S.roundIndex + 1) + " / " + roundCount() + " · " + r.name));
-  c.appendChild(el("div", { style: "margin:18px 0 4px" },
-    el("span", { class: "dot", style: "background:" + t.color + ";width:16px;height:16px" }),
-    el("span", { style: "font-weight:800;font-size:1.3rem;margin-left:8px" }, t.name)));
-  c.appendChild(el("p", {}, "C'est à"));
-  c.appendChild(el("div", { class: "big-num", style: "font-size:2.4rem;color:var(--accent)" }, describer));
-  c.appendChild(el("p", {}, "de faire deviner à son équipe."));
-  c.appendChild(el("p", { class: "hint", style: "margin:0 0 var(--s5)" },
-    S.roundRemaining.length + " mots · " + S.turnSeconds + "s"));
+
+  const card = el("div", { class: "card", style: "padding:var(--s5);text-align:center" });
+
+  card.appendChild(el("div", {
+    style: "display:inline-flex;align-items:center;gap:6px;" +
+           "background:rgba(255,255,255,.07);border:1px solid var(--line);" +
+           "border-radius:999px;padding:5px 12px;font-size:.72rem;" +
+           "font-weight:700;letter-spacing:.5px;text-transform:uppercase;" +
+           "color:var(--muted);margin-bottom:var(--s5)"
+  }, "Manche " + (S.roundIndex + 1) + " / " + roundCount() + " · " + r.name));
+
+  card.appendChild(el("div", {
+    style: "display:flex;align-items:center;justify-content:center;gap:7px;margin-bottom:var(--s2)"
+  },
+    el("span", { class: "dot", style: "background:" + t.color }),
+    el("span", { style: "font-weight:700;font-size:.95rem;color:var(--muted)" }, t.name)
+  ));
+
+  card.appendChild(el("div", {
+    style: "font-family:var(--font-display);font-size:clamp(2rem,11vw,2.8rem);" +
+           "font-weight:800;color:var(--accent);line-height:1.1;" +
+           "word-break:break-word;margin-bottom:var(--s2)"
+  }, describer));
+
+  card.appendChild(el("p", { style: "margin:0 0 var(--s4);font-size:.88rem;color:var(--muted)" },
+    "fait deviner à son équipe"));
+
+  card.appendChild(el("div", {
+    style: "border-top:1px solid var(--line);padding-top:var(--s3);" +
+           "font-size:.85rem;font-weight:600;color:var(--muted)"
+  }, S.roundRemaining.length + " mots · " + S.turnSeconds + "s"));
+
+  c.appendChild(card);
   c.appendChild(el("button", { class: "good", onclick: beginTurn }, icon("play", 18), " JOUER"));
+  c.appendChild(el("div", { class: "spacer" }));
+  return c;
+}
   c.appendChild(el("div", { class: "spacer" }));
   return c;
 }
