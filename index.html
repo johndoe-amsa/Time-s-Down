@@ -1128,7 +1128,11 @@ function actionPass() {
   snapshot();
   serveNext();
   save();
-  updatePlaying();
+  if (S.currentWordId == null) {
+    endTurn(false);
+  } else {
+    updatePlaying();
+  }
 }
 function actionUndo() {
   if (!S.snapshots.length) return;
