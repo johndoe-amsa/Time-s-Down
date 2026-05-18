@@ -18,6 +18,8 @@ There is no build, lint, or test tooling. To develop, serve the directory over H
 python3 -m http.server 8000   # then open http://localhost:8000
 ```
 
+**Deployment & workflow.** Production is the `main` branch served via **GitHub Pages**. The maintainer normally tests by downloading the repo ZIP and opening `index.html` directly from `file://` — this exercises all game logic (state machine, `localStorage`, audio, timer, screens), but **not** the service worker, offline cache, or PWA install, which activate only over HTTP. To verify offline/PWA/SW behaviour, serve over HTTP locally (command above) or check it on the deployed GitHub Pages site.
+
 Testing is manual in a browser. When testing changes that touch caching/offline or persistence, note that:
 - The service worker caches the app shell. After editing `sw.js` or `index.html`, bump `CACHE` in `sw.js` (currently `"timesdown-v1"`) or hard-reload / clear the SW, otherwise you'll see stale code.
 - Game state persists in `localStorage` under `timesdown_state_v1`. Clear it (or use the in-app "Nouvelle partie") to test the setup flow from scratch.
