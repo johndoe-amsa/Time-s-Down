@@ -15,6 +15,7 @@
 <title>Time's Down — Jeu de mots</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js" defer></script>
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -153,6 +154,10 @@
     font-weight: 600;
     letter-spacing: .3px;
     color: #2a1850;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
     background: linear-gradient(180deg, #ffe487, var(--accent) 52%, var(--accent2));
     width: 100%;
     min-height: 56px;
@@ -206,7 +211,8 @@
   .player-line button { width: auto; flex: none; }
   .x-btn {
     background: transparent; color: var(--bad);
-    width: 44px; height: 44px; padding: 0; font-size: 1.2rem;
+    width: 44px; height: 44px; padding: 0;
+    display: flex; align-items: center; justify-content: center;
     min-height: 44px; box-shadow: none; border-radius: 12px;
   }
   .x-btn:active { transform: scale(.9); }
@@ -450,6 +456,13 @@ function shuffle(arr) {
   }
   return a;
 }
+function icon(name, size) {
+  size = size || 18;
+  const i = document.createElement("i");
+  i.setAttribute("data-lucide", name);
+  i.style.cssText = "width:" + size + "px;height:" + size + "px;display:inline-flex;flex-shrink:0;pointer-events:none";
+  return i;
+}
 function vibrate(ms) { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) {} }
 
 /* ---------- Audio (Web Audio, no asset files) ---------- */
@@ -591,7 +604,7 @@ function renderSetup() {
   S.players.forEach(p => {
     pCard.appendChild(el("div", { class: "player-line" },
       el("span", { class: "name" }, p.name),
-      el("button", { class: "x-btn", onclick: () => { S.players = S.players.filter(x => x.id !== p.id); save(); render(); } }, "✕")
+      el("button", { class: "x-btn", onclick: () => { S.players = S.players.filter(x => x.id !== p.id); save(); render(); } }, icon("x", 16))
     ));
   });
   const inp = el("input", { type: "text", placeholder: "Nom du joueur", autocomplete: "off", autocapitalize: "words", enterkeyhint: "done" });
@@ -658,23 +671,24 @@ function renderSetup() {
         el("span", {
           class: "pill",
           style: on ? "background:var(--accent);color:#2a1850;border-color:transparent" : ""
-        }, on ? "✓" : "—")
+        }, on ? icon("check", 13) : "—")
       ));
     });
 
     const customs = S.rounds.filter(r => !PRESETS.includes(r.name));
     customs.forEach(rd => {
       roundListEl.appendChild(el("div", { class: "player-line", style: "margin-top:4px" },
-        el("span", { class: "name" }, "✦ " + rd.name),
+        el("span", { class: "name" }, rd.name),
         el("button", {
           class: "x-btn",
           onclick: () => {
             S.rounds = S.rounds.filter(r => r !== rd);
             save(); buildRoundList(); refreshStart();
           }
-        }, "✕")
+        }, icon("x", 16))
       ));
     });
+    if (roundListEl.isConnected && typeof lucide !== "undefined") lucide.createIcons();
   }
   buildRoundList();
   rCard.appendChild(roundListEl);
@@ -697,7 +711,7 @@ function renderSetup() {
   roundInp.addEventListener("keydown", e => { if (e.key === "Enter") doCreateRound(); });
   rCard.appendChild(el("div", { class: "row", style: "margin-top:6px" },
     roundInp,
-    el("button", { class: "secondary", style: "flex:none;width:auto;padding:13px 18px", onclick: doCreateRound }, "+ Créer")
+    el("button", { class: "secondary", style: "flex:none;width:auto;padding:13px 18px", onclick: doCreateRound }, icon("plus", 16), " Créer")
   ));
   rCard.appendChild(roundErr);
   c.appendChild(rCard);
@@ -714,7 +728,7 @@ function renderSetup() {
       S.screen = "teams";
       save(); render();
     }
-  }, "Former les équipes →");
+  }, "Former les équipes ", icon("arrow-right", 16));
   startCard.appendChild(startErr);
   startCard.appendChild(recapEl);
   startCard.appendChild(startBtn);
@@ -809,10 +823,10 @@ function renderTeams() {
   });
 
   c.appendChild(el("div", { class: "card btn-stack" },
-    el("button", { class: "secondary", onclick: () => { buildTeams(); save(); render(); } }, "↻ Relancer le tirage"),
+    el("button", { class: "secondary", onclick: () => { buildTeams(); save(); render(); } }, icon("shuffle", 16), " Relancer le tirage"),
     el("button", { onclick: () => { S.screen = "wordEntryForm"; S.entryIndex = 0; save(); render(); } },
-      "Passer à la saisie des mots →"),
-    el("button", { class: "ghost", onclick: () => { S.screen = "setup"; save(); render(); } }, "← Retour aux réglages")
+      "Saisir les mots ", icon("arrow-right", 16)),
+    el("button", { class: "ghost", onclick: () => { S.screen = "setup"; save(); render(); } }, icon("arrow-left", 16), " Retour")
   ));
   return c;
 }
@@ -853,8 +867,8 @@ function renderWordEntryForm() {
     });
     c.appendChild(list);
     c.appendChild(el("div", { class: "card btn-stack" },
-      el("button", { class: "good", onclick: () => commitEntry(pendingEntry.slice()) }, "Confirmer ✓"),
-      el("button", { class: "ghost", onclick: () => { entryStage = "edit"; render(); } }, "← Modifier")
+      el("button", { class: "good", onclick: () => commitEntry(pendingEntry.slice()) }, icon("check", 17), " Confirmer"),
+      el("button", { class: "ghost", onclick: () => { entryStage = "edit"; render(); } }, icon("arrow-left", 16), " Modifier")
     ));
     return c;
   }
@@ -895,7 +909,7 @@ function renderWordEntryForm() {
       slot.value = pool[Math.floor(Math.random() * pool.length)];
       err.textContent = "";
     }
-  }, "💡 Suggérer un mot (banque)"));
+  }, icon("lightbulb", 16), " Suggérer un mot"));
 
   c.appendChild(el("button", {
     onclick: () => {
@@ -919,7 +933,7 @@ function renderWordEntryForm() {
       entryStage = "confirm";
       render();
     }
-  }, "Valider mes mots ✓"));
+  }, icon("check", 17), " Valider mes mots"));
   setTimeout(() => {
     const first = inputs.find(i => !i.value.trim()) || inputs[0];
     if (first && first.focus) first.focus();
@@ -953,7 +967,7 @@ function scoreboardHeader(opts) {
       el("div", {
         style: "font-size:.78rem;color:var(--muted);font-weight:700;white-space:nowrap;" +
           "overflow:hidden;text-overflow:ellipsis"
-      }, (active ? "▶ " : "") + t.name),
+      }, t.name),
       el("div", { style: "font-size:1.4rem;font-weight:800" }, String(t.score))
     ));
   });
@@ -1010,7 +1024,7 @@ function renderTurnReady() {
   c.appendChild(el("p", {}, "de faire deviner à son équipe."));
   c.appendChild(el("p", { class: "hint", style: "margin:0 0 var(--s5)" },
     S.roundRemaining.length + " mots · " + S.turnSeconds + "s"));
-  c.appendChild(el("button", { class: "good", onclick: beginTurn }, "▶ JOUER"));
+  c.appendChild(el("button", { class: "good", onclick: beginTurn }, icon("play", 18), " JOUER"));
   c.appendChild(el("div", { class: "spacer" }));
   return c;
 }
@@ -1138,12 +1152,12 @@ function renderPlaying() {
   if (S.paused) {
     c.appendChild(el("div", { class: "spacer" }));
     c.appendChild(el("div", { class: "center" },
-      el("div", { class: "big-num", style: "font-size:2rem;color:var(--muted)" }, "⏸ EN PAUSE")));
+      el("div", { class: "big-num", style: "font-size:2rem;color:var(--muted);display:flex;align-items:center;gap:10px;justify-content:center" }, icon("pause", 28), " EN PAUSE")));
     c.appendChild(el("p", { class: "hint center" }, "Reste " + S.timeLeft + "s"));
     c.appendChild(el("div", { class: "spacer" }));
     c.appendChild(el("div", { class: "btn-stack" },
-      el("button", { class: "good", onclick: resumeTurn }, "▶ Reprendre"),
-      el("button", { class: "ghost", onclick: () => endTurn(false) }, "■ Terminer le tour")
+      el("button", { class: "good", onclick: resumeTurn }, icon("play", 18), " Reprendre"),
+      el("button", { class: "ghost", onclick: () => endTurn(false) }, icon("square", 16), " Terminer le tour")
     ));
     return c;
   }
@@ -1172,12 +1186,12 @@ function renderPlaying() {
   c.appendChild(el("div", { class: "spacer" }));
 
   c.appendChild(el("div", { class: "btn-stack" },
-    el("button", { class: "good", id: "btn-found", onclick: actionFound }, "✓ TROUVÉ !"),
+    el("button", { class: "good", id: "btn-found", onclick: actionFound }, icon("check", 22), " TROUVÉ !"),
     el("div", { class: "row" },
-      el("button", { class: "neutral", id: "btn-pass", onclick: actionPass }, "↷ Passe"),
-      el("button", { class: "secondary", id: "btn-undo", disabled: !S.snapshots.length, onclick: actionUndo }, "↶ Annuler")
+      el("button", { class: "neutral", id: "btn-pass", onclick: actionPass }, icon("rotate-cw", 18), " Passe"),
+      el("button", { class: "secondary", id: "btn-undo", disabled: !S.snapshots.length, onclick: actionUndo }, icon("rotate-ccw", 16), " Annuler")
     ),
-    el("button", { class: "ghost", style: "padding:10px", onclick: pauseTurn }, "⏸")
+    el("button", { class: "ghost", style: "padding:10px", onclick: pauseTurn }, icon("pause", 20))
   ));
   return c;
 }
@@ -1246,9 +1260,10 @@ function renderTurnRecap() {
       "Score validé ce tour : " + (S.turnFound.length - removedCount) +
       (removedCount ? "  (" + removedCount + " retiré(s))" : "")),
     el("button", { onclick: continueAfterRecap },
-      S.roundJustFinished
-        ? (S.roundIndex + 1 < roundCount() ? "Manche suivante →" : "Voir les scores finaux →")
-        : "Au tour suivant →")
+      document.createTextNode(S.roundJustFinished
+        ? (S.roundIndex + 1 < roundCount() ? "Manche suivante " : "Voir les scores finaux ")
+        : "Au tour suivant "),
+      icon("arrow-right", 16))
   ));
   return c;
 }
@@ -1331,12 +1346,12 @@ function renderStatsCard() {
   const best = entries[0].n;
   const mvp = entries.filter(e => e.n === best).map(e => playerName(e.pid)).join(", ");
   card.appendChild(el("div", { class: "recap-item" },
-    el("span", { class: "w" }, "🏅 MVP — " + mvp),
+    el("span", { class: "w" }, icon("award", 15), " MVP — " + mvp),
     el("span", { class: "pill" }, best + " mot" + (best > 1 ? "s" : ""))));
 
   if (st.bestTurn && st.bestTurn.count > 0) {
     card.appendChild(el("div", { class: "recap-item" },
-      el("span", { class: "w" }, "🔥 Meilleur tour — " + playerName(st.bestTurn.playerId)),
+      el("span", { class: "w" }, icon("flame", 15), " Meilleur tour — " + playerName(st.bestTurn.playerId)),
       el("span", { class: "pill" },
         st.bestTurn.count + " en « " + roundDef(st.bestTurn.round).name + " »")));
   }
@@ -1393,7 +1408,7 @@ function renderGameOver() {
   if (tie) {
     actions.appendChild(el("button", { class: "neutral",
       onclick: () => startTiebreaker(winners) },
-      "⚔ Manche de départage"));
+      icon("swords", 16), " Manche de départage"));
   }
   actions.appendChild(el("button", {
     onclick: () => {
@@ -1412,8 +1427,8 @@ function renderGameOver() {
       S.words = []; S.entryIndex = 0; S.screen = "wordEntryForm";
       save(); render();
     }
-  }, "Rejouer (mêmes équipes)"));
-  actions.appendChild(el("button", { class: "ghost", onclick: newGame }, "Nouvelle partie"));
+  }, icon("refresh-cw", 16), " Rejouer (mêmes équipes)"));
+  actions.appendChild(el("button", { class: "ghost", onclick: newGame }, icon("rotate-ccw", 16), " Nouvelle partie"));
   c.appendChild(actions);
   return c;
 }
@@ -1447,9 +1462,9 @@ function renderResume(saved) {
         save();
         render();
       }
-    }, "Reprendre la partie"),
+    }, icon("play", 18), " Reprendre la partie"),
     el("button", { class: "ghost", onclick: () => { clearSave(); S = freshState(); render(); } },
-      "Nouvelle partie")
+      icon("rotate-ccw", 16), " Nouvelle partie")
   ));
   c.appendChild(el("div", { class: "spacer" }));
   return c;
@@ -1480,6 +1495,7 @@ function render() {
     default:              S.screen = "setup"; view = renderSetup();
   }
   app.appendChild(view);
+  if (typeof lucide !== "undefined") lucide.createIcons();
   if (S.screen === "playing" && !S.paused) updateTimerUI();
   app.scrollTop = 0;
 }
