@@ -325,7 +325,8 @@
     display: grid; place-items: center;
     background: var(--card2); border: 1px solid var(--line); color: var(--accent);
   }
-  .section-head h3 { margin: 0; line-height: 1.1; }
+  .section-head h2,
+  .section-head h3 { margin: 0; line-height: 1.12; }
   .section-head .count {
     margin-left: auto; font-family: var(--font-display); font-weight: 700;
     font-size: .9rem; color: var(--accent);
@@ -480,6 +481,15 @@ function icon(name, size) {
   i.setAttribute("data-lucide", name);
   i.style.cssText = "width:" + size + "px;height:" + size + "px;display:inline-flex;flex-shrink:0;pointer-events:none";
   return i;
+}
+function sectionHead(iconName, title, opts) {
+  opts = opts || {};
+  const head = el("div", { class: "section-head" },
+    el("div", { class: "ic" }, icon(iconName, 19)),
+    el(opts.h2 ? "h2" : "h3", {}, title)
+  );
+  if (opts.count != null) head.appendChild(el("span", { class: "count" }, String(opts.count)));
+  return head;
 }
 function vibrate(ms) { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) {} }
 
@@ -838,8 +848,7 @@ function stepper(labelTxt, value, min, max, onChange, step) {
    ============================================================ */
 function renderTeams() {
   const c = el("div", { class: "screen" });
-  c.appendChild(el("h2", {}, "Les équipes"));
-  c.appendChild(el("p", {}, "Tirage au sort effectué. Tu peux renommer une équipe ou relancer le tirage."));
+  c.appendChild(sectionHead("users", "Les équipes", { h2: true, count: S.teams.length }));
 
   S.teams.forEach(t => {
     const block = el("div", { class: "card team-block" });
@@ -885,13 +894,11 @@ function commitEntry(vals) {
 function renderWordEntryForm() {
   const p = S.players[S.entryIndex];
   const c = el("div", { class: "screen" });
-  c.appendChild(el("h2", {}, "À toi, " + p.name));
-  c.appendChild(el("p", { class: "hint", style: "margin:-8px 0 16px" },
-    "Joueur " + (S.entryIndex + 1) + " / " + S.players.length));
+  c.appendChild(sectionHead("pencil", "À toi, " + p.name,
+    { h2: true, count: (S.entryIndex + 1) + " / " + S.players.length }));
 
   /* ----- Confirmation step ----- */
   if (entryStage === "confirm" && pendingEntry) {
-    c.appendChild(el("p", {}, "Relis bien tes mots avant de valider."));
     const list = el("div", { class: "card" });
     pendingEntry.forEach((w, i) => {
       list.appendChild(el("div", { class: "recap-item" },
@@ -1290,7 +1297,8 @@ function renderTurnRecap() {
   const t = currentTeam();
   const c = el("div", { class: "screen" });
   c.appendChild(scoreboardHeader());
-  c.appendChild(el("h2", {}, S.roundJustFinished ? "Manche terminée !" : "Fin du tour"));
+  c.appendChild(sectionHead(S.roundJustFinished ? "flag-triangle-right" : "flag",
+    S.roundJustFinished ? "Manche terminée" : "Fin du tour", { h2: true }));
   c.appendChild(el("p", {},
     el("span", { class: "pill" },
       el("span", { class: "dot", style: "background:" + t.color }),
@@ -1400,7 +1408,7 @@ function startTiebreaker(tiedTeams) {
 function renderStatsCard() {
   const st = S.stats || { byPlayer: {}, byRound: [], bestTurn: null };
   const card = el("div", { class: "card" });
-  card.appendChild(el("h3", {}, "Stats"));
+  card.appendChild(sectionHead("bar-chart", "Stats"));
 
   const entries = Object.keys(st.byPlayer)
     .map(pid => ({ pid, n: st.byPlayer[pid] }))
@@ -1469,7 +1477,7 @@ function renderGameOver() {
       el("td", { class: "s" }, String(t.score))
     ));
   });
-  c.appendChild(el("div", { class: "card" }, el("h3", {}, "Scores finaux"), table));
+  c.appendChild(el("div", { class: "card" }, sectionHead("trophy", "Scores finaux"), table));
 
   c.appendChild(renderStatsCard());
 
