@@ -6,6 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Time's Down** is a French-language, local (single-device, pass-the-phone) party word game — a "Time's Up" clone. The entire app is one self-contained `index.html` (inline CSS + JS, no build step, no framework) plus a service worker. UI strings are in French; keep new user-facing text in French.
 
+## Audience & scope
+
+Personal project, played only among friends who already know the rules. Don't add rule explanations, tutorials, onboarding, or pedagogical/help text to the screens unless explicitly asked — the interface must stay minimal and uncluttered. Always weigh this known audience before creating any new visible content.
+
 ## Running & testing
 
 There is no build, lint, or test tooling. To develop, serve the directory over HTTP and open it in a browser — the service worker and PWA manifest do **not** work from `file://`:
