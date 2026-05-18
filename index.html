@@ -315,6 +315,72 @@
   .footer-note { text-align: center; color: var(--muted); font-size: .78rem; margin-top: auto; padding-top: var(--s4); opacity: .8; }
   .err { color: var(--bad); font-size: .9rem; margin: var(--s1) 0 0; min-height: 1.1em; font-weight: 600; }
 
+  /* ---- Home / setup ---- */
+  .hero { text-align: center; margin: var(--s2) 0 var(--s5); }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: var(--s1);
+    padding: 6px 14px; border-radius: 999px;
+    font-family: var(--font-display); font-weight: 600;
+    font-size: .72rem; letter-spacing: 1.4px; text-transform: uppercase;
+    color: var(--accent);
+    background: rgba(255,210,63,.10);
+    border: 1px solid rgba(255,210,63,.28);
+  }
+  .hero .logo { margin: var(--s3) 0 var(--s1); }
+  .hero .tagline { margin: 0 0 var(--s3); font-size: 1.02rem; }
+  .hero-pitch {
+    color: var(--muted); font-size: .96rem; line-height: 1.55;
+    max-width: 34ch; margin: 0 auto;
+  }
+
+  .section-head { display: flex; align-items: center; gap: var(--s3); margin: 0 0 var(--s4); }
+  .section-head .ic {
+    width: 40px; height: 40px; border-radius: 12px; flex: none;
+    display: grid; place-items: center;
+    background: var(--card2); border: 1px solid var(--line); color: var(--accent);
+  }
+  .section-head h3 { margin: 0; line-height: 1.1; }
+  .section-head .count {
+    margin-left: auto; font-family: var(--font-display); font-weight: 700;
+    font-size: .9rem; color: var(--accent);
+    background: var(--card2); border: 1px solid var(--line);
+    padding: 5px 12px; border-radius: 999px; min-width: 38px; text-align: center;
+  }
+
+  details.how { padding: var(--s5); }
+  details.how > summary {
+    list-style: none; cursor: pointer; user-select: none; -webkit-user-select: none;
+    display: flex; align-items: center; gap: var(--s2);
+    font-family: var(--font-display); font-weight: 600; font-size: 1.05rem;
+  }
+  details.how > summary::-webkit-details-marker { display: none; }
+  details.how > summary .chev { margin-left: auto; color: var(--muted); display: inline-flex; transition: transform .2s ease; }
+  details.how[open] > summary .chev { transform: rotate(180deg); }
+  .how-steps { margin-top: var(--s4); }
+  .how-step { display: flex; gap: var(--s3); align-items: flex-start; padding: 13px 0; border-top: 1px solid var(--line); }
+  .how-step:first-child { border-top: none; padding-top: var(--s1); }
+  .how-step:last-child { padding-bottom: 0; }
+  .how-step .n {
+    width: 30px; height: 30px; border-radius: 50%; flex: none;
+    display: grid; place-items: center;
+    font-family: var(--font-display); font-weight: 700; font-size: .92rem;
+    color: #2a1850;
+    background: linear-gradient(180deg, #ffe487, var(--accent) 60%, var(--accent2));
+  }
+  .how-step .t { font-weight: 600; font-family: var(--font-display); }
+  .how-step .d { font-size: .86rem; color: var(--muted); margin: 3px 0 0; line-height: 1.45; }
+  .how-note {
+    margin-top: var(--s4); padding: 12px 14px; border-radius: var(--radius-sm);
+    background: rgba(108,123,255,.12); border: 1px solid rgba(108,123,255,.28);
+    font-size: .85rem; color: var(--text); line-height: 1.5;
+    display: flex; gap: var(--s2); align-items: flex-start;
+  }
+  .how-note i, .how-note svg { color: var(--neutral); margin-top: 1px; }
+  .home-foot {
+    text-align: center; color: var(--muted); font-size: .76rem;
+    margin: var(--s2) 0 0; opacity: .75; letter-spacing: .3px;
+  }
+
   @media (max-height: 700px) {
     .big-num { font-size: 3.2rem; }
     .timer-wrap { width: 150px; height: 150px; }
@@ -596,11 +662,52 @@ function buildTeams() {
 
 function renderSetup() {
   const c = el("div", { class: "screen" });
-  c.appendChild(el("h1", { class: "logo", style: "text-align:center" }, "Time's Down"));
+
+  /* Hero */
+  const hero = el("div", { class: "hero" });
+  hero.appendChild(el("span", { class: "eyebrow" }, icon("sparkles", 13), "Jeu de mots · Soirée entre amis"));
+  hero.appendChild(el("h1", { class: "logo" }, "Time's Down"));
+  hero.appendChild(el("p", { class: "tagline" }, "Devine, mime, fais-toi comprendre."));
+  hero.appendChild(el("p", { class: "hero-pitch" },
+    "Fais deviner un maximum de mots à ton équipe avant la fin du chrono. " +
+    "Les mêmes mots reviennent à chaque manche… mais de plus en plus dur."));
+  c.appendChild(hero);
+
+  /* How to play (collapsible) */
+  const howRounds = [
+    ["Description libre", "Tout est permis pour faire deviner, sauf prononcer le mot lui-même."],
+    ["Un seul mot", "Un unique indice autorisé. Choisis-le bien."],
+    ["Mime", "Plus aucun son ni mot : tout passe par le geste."],
+  ];
+  const how = el("details", { class: "card how" });
+  how.appendChild(el("summary", {},
+    icon("book-open", 18),
+    "Comment jouer ?",
+    el("span", { class: "chev" }, icon("chevron-down", 18))
+  ));
+  const howSteps = el("div", { class: "how-steps" });
+  howRounds.forEach(([t, d], i) => {
+    howSteps.appendChild(el("div", { class: "how-step" },
+      el("div", { class: "n" }, String(i + 1)),
+      el("div", {},
+        el("div", { class: "t" }, t),
+        el("div", { class: "d" }, d))
+    ));
+  });
+  how.appendChild(howSteps);
+  how.appendChild(el("div", { class: "how-note" },
+    icon("info", 16),
+    el("span", {}, "Ce sont les mêmes mots à chaque manche : bien les mémoriser dès la première donne un vrai avantage.")
+  ));
+  c.appendChild(how);
 
   /* Players */
   const pCard = el("div", { class: "card" });
-  pCard.appendChild(el("h3", {}, "Joueurs (" + S.players.length + ")"));
+  pCard.appendChild(el("div", { class: "section-head" },
+    el("div", { class: "ic" }, icon("users", 19)),
+    el("h3", {}, "Joueurs"),
+    el("span", { class: "count" }, String(S.players.length))
+  ));
   S.players.forEach(p => {
     pCard.appendChild(el("div", { class: "player-line" },
       el("span", { class: "name" }, p.name),
@@ -623,7 +730,10 @@ function renderSetup() {
 
   /* Settings — steppers update in place, no full re-render */
   const sCard = el("div", { class: "card" });
-  sCard.appendChild(el("h3", {}, "Réglages"));
+  sCard.appendChild(el("div", { class: "section-head" },
+    el("div", { class: "ic" }, icon("settings", 19)),
+    el("h3", {}, "Réglages")
+  ));
   sCard.appendChild(stepper("Nombre d'équipes", S.nbTeams, 2, Math.max(2, S.players.length || 2),
     v => { S.nbTeams = v; save(); refreshStart(); }));
   sCard.appendChild(stepper("Mots par joueur", S.wordsPerPlayer, 1, 12,
@@ -634,15 +744,19 @@ function renderSetup() {
 
   /* Rounds */
   const rCard = el("div", { class: "card" });
-  const rHeader = el("h3", {});
-  rCard.appendChild(rHeader);
-  rCard.appendChild(el("p", { class: "hint", style: "margin:-4px 0 12px" },
+  const rCount = el("span", { class: "count" }, String(S.rounds.length));
+  rCard.appendChild(el("div", { class: "section-head" },
+    el("div", { class: "ic" }, icon("layers", 19)),
+    el("h3", {}, "Manches"),
+    rCount
+  ));
+  rCard.appendChild(el("p", { class: "hint", style: "margin:-4px 0 14px" },
     "Les mêmes mots sont rejoués à chaque manche. Choisis-en au moins une."));
 
   const PRESETS = ["Description libre", "Un seul mot", "Mime"];
   const roundListEl = el("div");
   function buildRoundList() {
-    rHeader.textContent = "Manches (" + S.rounds.length + ")";
+    rCount.textContent = String(S.rounds.length);
     roundListEl.innerHTML = "";
 
     PRESETS.forEach(name => {
@@ -728,7 +842,7 @@ function renderSetup() {
       S.screen = "teams";
       save(); render();
     }
-  }, "Former les équipes ", icon("arrow-right", 16));
+  }, icon("users", 18), " Former les équipes ", icon("arrow-right", 16));
   startCard.appendChild(startErr);
   startCard.appendChild(recapEl);
   startCard.appendChild(startBtn);
@@ -766,6 +880,9 @@ function renderSetup() {
     }
   }
   refreshStart();
+
+  c.appendChild(el("p", { class: "home-foot" },
+    "100% hors-ligne · Aucune donnée collectée · Un seul appareil à se passer"));
 
   return c;
 }
@@ -1483,8 +1600,11 @@ function newGame() {
 function renderResume(saved) {
   const c = el("div", { class: "screen center" });
   c.appendChild(el("div", { class: "spacer" }));
+  c.appendChild(el("span", { class: "eyebrow", style: "margin-bottom:var(--s2)" },
+    icon("history", 13), "Partie en cours"));
   c.appendChild(el("h1", { class: "logo" }, "Time's Down"));
-  c.appendChild(el("p", {}, "Une partie est en cours sur cet appareil."));
+  c.appendChild(el("p", {},
+    "Une partie est déjà en cours sur cet appareil. Reprends là où tu en étais ou démarre une nouvelle partie."));
   c.appendChild(el("div", { class: "card btn-stack" },
     el("button", {
       onclick: () => {
