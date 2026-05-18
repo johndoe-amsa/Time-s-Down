@@ -584,7 +584,6 @@ function buildTeams() {
 function renderSetup() {
   const c = el("div", { class: "screen" });
   c.appendChild(el("h1", { class: "logo" }, "Time's Down"));
-  c.appendChild(el("p", { class: "tagline" }, "Le jeu de mots à se passer entre amis"));
 
   /* Players */
   const pCard = el("div", { class: "card" });
@@ -737,7 +736,6 @@ function renderSetup() {
   }
   refreshStart();
 
-  c.appendChild(el("p", { class: "footer-note" }, "Tout reste sur cet appareil. Passez-le de main en main."));
   return c;
 }
 
@@ -795,7 +793,7 @@ function renderTeams() {
 
   c.appendChild(el("div", { class: "card btn-stack" },
     el("button", { class: "secondary", onclick: () => { buildTeams(); save(); render(); } }, "↻ Relancer le tirage"),
-    el("button", { onclick: () => { S.screen = "wordEntryGate"; S.entryIndex = 0; save(); render(); } },
+    el("button", { onclick: () => { S.screen = "wordEntryForm"; S.entryIndex = 0; save(); render(); } },
       "Passer à la saisie des mots →"),
     el("button", { class: "ghost", onclick: () => { S.screen = "setup"; save(); render(); } }, "← Retour aux réglages")
   ));
@@ -808,27 +806,6 @@ function renderTeams() {
 let pendingEntry = null;     // values awaiting the player's confirmation
 let entryStage = "edit";     // "edit" | "confirm"
 
-function renderWordEntryGate() {
-  const p = S.players[S.entryIndex];
-  const c = el("div", { class: "screen center" });
-  c.appendChild(el("div", { class: "spacer" }));
-  c.appendChild(el("h2", {}, "Passe le téléphone à"));
-  c.appendChild(el("div", { class: "big-num", style: "font-size:2.6rem;color:var(--accent);margin:6px 0 14px" }, p.name));
-  c.appendChild(el("p", {}, "Personne d'autre ne doit voir l'écran. Quand " + p.name + " a le téléphone en main, c'est parti."));
-  c.appendChild(el("div", { class: "card" },
-    el("p", { class: "hint", style: "margin:0 0 12px" },
-      "Joueur " + (S.entryIndex + 1) + " / " + S.players.length +
-      " · " + S.wordsPerPlayer + " mots à saisir"),
-    el("button", {
-      onclick: () => {
-        pendingEntry = null; entryStage = "edit";
-        S.screen = "wordEntryForm"; save(); render();
-      }
-    }, "Je suis " + p.name + ", c'est parti →")
-  ));
-  c.appendChild(el("div", { class: "spacer" }));
-  return c;
-}
 
 function commitEntry(vals) {
   vals.forEach(v => S.words.push({ id: uid(), text: v }));
@@ -836,7 +813,7 @@ function commitEntry(vals) {
   entryStage = "edit";
   S.entryIndex++;
   if (S.entryIndex >= S.players.length) startNewRound(0, true);
-  else S.screen = "wordEntryGate";
+  else S.screen = "wordEntryForm";
   save();
   render();
 }
@@ -845,8 +822,10 @@ function renderWordEntryForm() {
   const p = S.players[S.entryIndex];
   const c = el("div", { class: "screen" });
   c.appendChild(el("h2", {}, "À toi, " + p.name));
+  c.appendChild(el("p", { class: "hint", style: "margin:-8px 0 16px" },
+    "Joueur " + (S.entryIndex + 1) + " / " + S.players.length));
 
-  /* ----- Confirmation step: re-read before validating ----- */
+  /* ----- Confirmation step ----- */
   if (entryStage === "confirm" && pendingEntry) {
     c.appendChild(el("p", {}, "Relis bien tes mots avant de valider."));
     const list = el("div", { class: "card" });
@@ -864,8 +843,6 @@ function renderWordEntryForm() {
   }
 
   /* ----- Edit step ----- */
-  c.appendChild(el("p", {}, "Écris " + S.wordsPerPlayer +
-    " mots ou expressions. Ils seront mélangés avec ceux des autres — personne ne saura qui a écrit quoi."));
 
   const inputs = [];
   const card = el("div", { class: "card" });
@@ -942,7 +919,7 @@ function startNewRound(roundIndex, fromSetup) {
   S.roundJustFinished = false;
   // After setup the first team starts; otherwise rotation already advanced.
   if (fromSetup) { S.teamPos = 0; }
-  S.screen = "roundIntro";
+  S.screen = "turnReady";
 }
 
 /* Persistent scoreboard + "à suivre" banner. */
@@ -1000,42 +977,22 @@ function renderCountdown() {
   return c;
 }
 
-function renderRoundIntro() {
-  const r = roundDef(S.roundIndex);
-  const t = currentTeam();
-  const c = el("div", { class: "screen center" });
-  c.appendChild(scoreboardHeader());
-  c.appendChild(el("div", { class: "spacer" }));
-  c.appendChild(el("span", { class: "pill" }, "Manche " + (S.roundIndex + 1) + " / " + roundCount()));
-  c.appendChild(el("h1", { style: "margin:14px 0 18px" }, r.name));
-  c.appendChild(el("div", { class: "card" },
-    el("p", { class: "hint", style: "margin:0 0 4px" }, "C'est l'équipe qui commence :"),
-    el("h3", { style: "margin:0", html: '<span class="dot" style="background:' + t.color + ';vertical-align:middle"></span> ' + escapeHtml(t.name) }),
-    el("p", { class: "hint", style: "margin:8px 0 0" }, S.words.length + " mots dans la manche")
-  ));
-  c.appendChild(el("button", { onclick: () => { S.screen = "turnReady"; save(); render(); } },
-    "Préparer le tour →"));
-  c.appendChild(el("div", { class: "spacer" }));
-  return c;
-}
-
 function renderTurnReady() {
   const t = currentTeam();
   const describer = playerName(currentDescriberId());
   const r = roundDef(S.roundIndex);
   const c = el("div", { class: "screen center" });
+  c.appendChild(scoreboardHeader());
   c.appendChild(el("div", { class: "spacer" }));
-  c.appendChild(el("span", { class: "pill" }, "Manche " + (S.roundIndex + 1) + " · " + r.name));
+  c.appendChild(el("span", { class: "pill" }, "Manche " + (S.roundIndex + 1) + " / " + roundCount() + " · " + r.name));
   c.appendChild(el("div", { style: "margin:18px 0 4px" },
     el("span", { class: "dot", style: "background:" + t.color + ";width:16px;height:16px" }),
     el("span", { style: "font-weight:800;font-size:1.3rem;margin-left:8px" }, t.name)));
   c.appendChild(el("p", {}, "C'est à"));
   c.appendChild(el("div", { class: "big-num", style: "font-size:2.4rem;color:var(--accent)" }, describer));
   c.appendChild(el("p", {}, "de faire deviner à son équipe."));
-  c.appendChild(el("div", { class: "card" },
-    el("p", { class: "hint", style: "margin:0" },
-      S.roundRemaining.length + " mots restants · " + S.turnSeconds + "s")
-  ));
+  c.appendChild(el("p", { class: "hint", style: "margin:0 0 var(--s5)" },
+    S.roundRemaining.length + " mots · " + S.turnSeconds + "s"));
   c.appendChild(el("button", { class: "good", onclick: beginTurn }, "▶ JOUER"));
   c.appendChild(el("div", { class: "spacer" }));
   return c;
@@ -1169,9 +1126,7 @@ function renderPlaying() {
     c.appendChild(el("div", { class: "spacer" }));
     c.appendChild(el("div", { class: "btn-stack" },
       el("button", { class: "good", onclick: resumeTurn }, "▶ Reprendre"),
-      el("button", { class: "ghost", onclick: () => {
-        if (confirm("Terminer le tour maintenant ? Les mots déjà trouvés ce tour sont conservés.")) endTurn(false);
-      } }, "■ Terminer le tour")
+      el("button", { class: "ghost", onclick: () => endTurn(false) }, "■ Terminer le tour")
     ));
     return c;
   }
@@ -1245,8 +1200,6 @@ function renderTurnRecap() {
       el("span", {}, t.name)),
     document.createTextNode("  a fait deviner " + S.turnFound.length + " mot(s).")
   ));
-  c.appendChild(el("p", { class: "hint" },
-    "L'équipe adverse conteste un mot ? Retire-le : il ne compte plus et reviendra dans la manche."));
 
   const list = el("div", { class: "card" });
   if (!S.turnFound.length) {
@@ -1439,7 +1392,7 @@ function renderGameOver() {
       S = freshState();
       Object.assign(S, keep);
       S.teams.forEach(t => { t.score = 0; t.descPtr = 0; });
-      S.words = []; S.entryIndex = 0; S.screen = "wordEntryGate";
+      S.words = []; S.entryIndex = 0; S.screen = "wordEntryForm";
       save(); render();
     }
   }, "Rejouer (mêmes équipes)"));
@@ -1499,17 +1452,15 @@ function render() {
   app.innerHTML = "";
   let view;
   switch (S.screen) {
-    case "setup":          view = renderSetup(); break;
-    case "teams":          view = renderTeams(); break;
-    case "wordEntryGate":  view = renderWordEntryGate(); break;
-    case "wordEntryForm":  view = renderWordEntryForm(); break;
-    case "roundIntro":     view = renderRoundIntro(); break;
-    case "turnReady":      view = renderTurnReady(); break;
-    case "countdown":      view = renderCountdown(); break;
-    case "playing":        view = renderPlaying(); break;
-    case "turnRecap":      view = renderTurnRecap(); break;
-    case "gameOver":       view = renderGameOver(); break;
-    default:               S.screen = "setup"; view = renderSetup();
+    case "setup":         view = renderSetup(); break;
+    case "teams":         view = renderTeams(); break;
+    case "wordEntryForm": view = renderWordEntryForm(); break;
+    case "turnReady":     view = renderTurnReady(); break;
+    case "countdown":     view = renderCountdown(); break;
+    case "playing":       view = renderPlaying(); break;
+    case "turnRecap":     view = renderTurnRecap(); break;
+    case "gameOver":      view = renderGameOver(); break;
+    default:              S.screen = "setup"; view = renderSetup();
   }
   app.appendChild(view);
   if (S.screen === "playing" && !S.paused) updateTimerUI();
