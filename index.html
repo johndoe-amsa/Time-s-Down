@@ -583,7 +583,7 @@ function buildTeams() {
 
 function renderSetup() {
   const c = el("div", { class: "screen" });
-  c.appendChild(el("h1", { class: "logo" }, "Time's Down"));
+  c.appendChild(el("h1", { class: "logo", style: "text-align:center" }, "Time's Down"));
 
   /* Players */
   const pCard = el("div", { class: "card" });
@@ -704,7 +704,8 @@ function renderSetup() {
 
   /* Validation + start */
   const startCard = el("div", { class: "card" });
-  const startHint = el("p", { class: "hint" });
+  const startErr = el("p", { class: "err", style: "margin:0 0 var(--s3)" });
+  const recapEl  = el("div");
   const startBtn = el("button", {
     onclick: () => {
       buildTeams();
@@ -714,24 +715,40 @@ function renderSetup() {
       save(); render();
     }
   }, "Former les équipes →");
-  startCard.appendChild(startHint);
+  startCard.appendChild(startErr);
+  startCard.appendChild(recapEl);
   startCard.appendChild(startBtn);
   c.appendChild(startCard);
+
+  function recapStat(value, label) {
+    return el("div", {
+      style: "flex:1;min-width:72px;text-align:center;" +
+             "background:rgba(255,255,255,.07);border:1px solid var(--line);" +
+             "border-radius:14px;padding:12px 8px"
+    },
+      el("div", { style: "font-size:1.5rem;font-weight:800;line-height:1" }, String(value)),
+      el("div", { style: "font-size:.72rem;color:var(--muted);font-weight:600;letter-spacing:.3px;margin-top:5px" }, label)
+    );
+  }
 
   function refreshStart() {
     const need = [];
     if (S.players.length < 2) need.push("Ajoute au moins 2 joueurs.");
     if (S.players.length < S.nbTeams) need.push("Il faut au moins autant de joueurs que d'équipes.");
     if (!S.rounds || !S.rounds.length) need.push("Choisis au moins une manche.");
-    if (need.length) {
-      startHint.textContent = need.join(" ");
-      startBtn.disabled = true;
-    } else {
+    startErr.textContent = need.join(" ");
+    startBtn.disabled = !!need.length;
+
+    recapEl.innerHTML = "";
+    if (!need.length) {
       const total = S.players.length * S.wordsPerPlayer;
-      startHint.textContent =
-        total + " mots · " + S.nbTeams + " équipes · " + roundCount() +
-        " manche(s) · " + S.turnSeconds + "s/tour";
-      startBtn.disabled = false;
+      const grid = el("div", { style: "display:flex;flex-wrap:wrap;gap:8px;margin-bottom:var(--s4)" });
+      grid.appendChild(recapStat(S.players.length, "joueurs"));
+      grid.appendChild(recapStat(S.nbTeams, "équipes"));
+      grid.appendChild(recapStat(total, "mots"));
+      grid.appendChild(recapStat(roundCount(), roundCount() === 1 ? "manche" : "manches"));
+      grid.appendChild(recapStat(S.turnSeconds + "s", "par tour"));
+      recapEl.appendChild(grid);
     }
   }
   refreshStart();
