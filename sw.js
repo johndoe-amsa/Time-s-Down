@@ -2,7 +2,7 @@
    Network-first for the page (fresh when online), cache fallback offline.
    Stale-while-revalidate for fonts and other GET requests. */
 
-const CACHE = "timesdown-v2";
+const CACHE = "timesdown-v3";
 const CORE = ["./", "./index.html"];
 
 self.addEventListener("install", e => {

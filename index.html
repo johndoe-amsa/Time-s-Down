@@ -53,7 +53,7 @@
       radial-gradient(60% 42% at 50% 0%, rgba(108,123,255,.34), transparent 70%),
       radial-gradient(48% 36% at 88% 8%, rgba(255,159,28,.16), transparent 70%),
       radial-gradient(70% 60% at 50% 100%, rgba(255,92,122,.14), transparent 72%),
-      linear-gradient(180deg, var(--bg2), var(--bg) 60%);
+      linear-gradient(180deg, var(--bg2) 0%, var(--bg) 100%);
     background-attachment: fixed;
   }
   #app {
@@ -71,7 +71,7 @@
       calc(var(--s4) + env(safe-area-inset-left));
     display: flex;
     flex-direction: column;
-    --fade: calc(26px + env(safe-area-inset-bottom));
+    --fade: calc(64px + env(safe-area-inset-bottom));
     -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - var(--fade)), transparent);
     mask-image: linear-gradient(to bottom, #000 calc(100% - var(--fade)), transparent);
   }
