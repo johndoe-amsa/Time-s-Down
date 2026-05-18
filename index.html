@@ -315,6 +315,25 @@
   .footer-note { text-align: center; color: var(--muted); font-size: .78rem; margin-top: auto; padding-top: var(--s4); opacity: .8; }
   .err { color: var(--bad); font-size: .9rem; margin: var(--s1) 0 0; min-height: 1.1em; font-weight: 600; }
 
+  /* ---- Home / setup ---- */
+  .hero { text-align: center; margin: var(--s2) 0 var(--s5); }
+  .hero .logo { margin: var(--s3) 0 var(--s2); }
+
+  .section-head { display: flex; align-items: center; gap: var(--s3); margin: 0 0 var(--s4); }
+  .section-head .ic {
+    width: 40px; height: 40px; border-radius: 12px; flex: none;
+    display: grid; place-items: center;
+    background: var(--card2); border: 1px solid var(--line); color: var(--accent);
+  }
+  .section-head h2,
+  .section-head h3 { margin: 0; line-height: 1.12; }
+  .section-head .count {
+    margin-left: auto; font-family: var(--font-display); font-weight: 700;
+    font-size: .9rem; color: var(--accent);
+    background: var(--card2); border: 1px solid var(--line);
+    padding: 5px 12px; border-radius: 999px; min-width: 38px; text-align: center;
+  }
+
   @media (max-height: 700px) {
     .big-num { font-size: 3.2rem; }
     .timer-wrap { width: 150px; height: 150px; }
@@ -463,6 +482,15 @@ function icon(name, size) {
   i.style.cssText = "width:" + size + "px;height:" + size + "px;display:inline-flex;flex-shrink:0;pointer-events:none";
   return i;
 }
+function sectionHead(iconName, title, opts) {
+  opts = opts || {};
+  const head = el("div", { class: "section-head" },
+    el("div", { class: "ic" }, icon(iconName, 19)),
+    el(opts.h2 ? "h2" : "h3", {}, title)
+  );
+  if (opts.count != null) head.appendChild(el("span", { class: "count" }, String(opts.count)));
+  return head;
+}
 function vibrate(ms) { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) {} }
 
 /* ---------- Audio (Web Audio, no asset files) ---------- */
@@ -596,11 +624,19 @@ function buildTeams() {
 
 function renderSetup() {
   const c = el("div", { class: "screen" });
-  c.appendChild(el("h1", { class: "logo", style: "text-align:center" }, "Time's Down"));
+
+  /* Hero */
+  const hero = el("div", { class: "hero" });
+  hero.appendChild(el("h1", { class: "logo" }, "Time's Down"));
+  c.appendChild(hero);
 
   /* Players */
   const pCard = el("div", { class: "card" });
-  pCard.appendChild(el("h3", {}, "Joueurs (" + S.players.length + ")"));
+  pCard.appendChild(el("div", { class: "section-head" },
+    el("div", { class: "ic" }, icon("users", 19)),
+    el("h3", {}, "Joueurs"),
+    el("span", { class: "count" }, String(S.players.length))
+  ));
   S.players.forEach(p => {
     pCard.appendChild(el("div", { class: "player-line" },
       el("span", { class: "name" }, p.name),
@@ -623,7 +659,10 @@ function renderSetup() {
 
   /* Settings — steppers update in place, no full re-render */
   const sCard = el("div", { class: "card" });
-  sCard.appendChild(el("h3", {}, "Réglages"));
+  sCard.appendChild(el("div", { class: "section-head" },
+    el("div", { class: "ic" }, icon("settings", 19)),
+    el("h3", {}, "Réglages")
+  ));
   sCard.appendChild(stepper("Nombre d'équipes", S.nbTeams, 2, Math.max(2, S.players.length || 2),
     v => { S.nbTeams = v; save(); refreshStart(); }));
   sCard.appendChild(stepper("Mots par joueur", S.wordsPerPlayer, 1, 12,
@@ -634,15 +673,19 @@ function renderSetup() {
 
   /* Rounds */
   const rCard = el("div", { class: "card" });
-  const rHeader = el("h3", {});
-  rCard.appendChild(rHeader);
-  rCard.appendChild(el("p", { class: "hint", style: "margin:-4px 0 12px" },
+  const rCount = el("span", { class: "count" }, String(S.rounds.length));
+  rCard.appendChild(el("div", { class: "section-head" },
+    el("div", { class: "ic" }, icon("layers", 19)),
+    el("h3", {}, "Manches"),
+    rCount
+  ));
+  rCard.appendChild(el("p", { class: "hint", style: "margin:-4px 0 14px" },
     "Les mêmes mots sont rejoués à chaque manche. Choisis-en au moins une."));
 
   const PRESETS = ["Description libre", "Un seul mot", "Mime"];
   const roundListEl = el("div");
   function buildRoundList() {
-    rHeader.textContent = "Manches (" + S.rounds.length + ")";
+    rCount.textContent = String(S.rounds.length);
     roundListEl.innerHTML = "";
 
     PRESETS.forEach(name => {
@@ -728,7 +771,7 @@ function renderSetup() {
       S.screen = "teams";
       save(); render();
     }
-  }, "Former les équipes ", icon("arrow-right", 16));
+  }, icon("users", 18), " Former les équipes ", icon("arrow-right", 16));
   startCard.appendChild(startErr);
   startCard.appendChild(recapEl);
   startCard.appendChild(startBtn);
@@ -805,8 +848,7 @@ function stepper(labelTxt, value, min, max, onChange, step) {
    ============================================================ */
 function renderTeams() {
   const c = el("div", { class: "screen" });
-  c.appendChild(el("h2", {}, "Les équipes"));
-  c.appendChild(el("p", {}, "Tirage au sort effectué. Tu peux renommer une équipe ou relancer le tirage."));
+  c.appendChild(sectionHead("users", "Les équipes", { h2: true, count: S.teams.length }));
 
   S.teams.forEach(t => {
     const block = el("div", { class: "card team-block" });
@@ -852,13 +894,11 @@ function commitEntry(vals) {
 function renderWordEntryForm() {
   const p = S.players[S.entryIndex];
   const c = el("div", { class: "screen" });
-  c.appendChild(el("h2", {}, "À toi, " + p.name));
-  c.appendChild(el("p", { class: "hint", style: "margin:-8px 0 16px" },
-    "Joueur " + (S.entryIndex + 1) + " / " + S.players.length));
+  c.appendChild(sectionHead("pencil", "À toi, " + p.name,
+    { h2: true, count: (S.entryIndex + 1) + " / " + S.players.length }));
 
   /* ----- Confirmation step ----- */
   if (entryStage === "confirm" && pendingEntry) {
-    c.appendChild(el("p", {}, "Relis bien tes mots avant de valider."));
     const list = el("div", { class: "card" });
     pendingEntry.forEach((w, i) => {
       list.appendChild(el("div", { class: "recap-item" },
@@ -1257,7 +1297,8 @@ function renderTurnRecap() {
   const t = currentTeam();
   const c = el("div", { class: "screen" });
   c.appendChild(scoreboardHeader());
-  c.appendChild(el("h2", {}, S.roundJustFinished ? "Manche terminée !" : "Fin du tour"));
+  c.appendChild(sectionHead(S.roundJustFinished ? "flag-triangle-right" : "flag",
+    S.roundJustFinished ? "Manche terminée" : "Fin du tour", { h2: true }));
   c.appendChild(el("p", {},
     el("span", { class: "pill" },
       el("span", { class: "dot", style: "background:" + t.color }),
@@ -1367,7 +1408,7 @@ function startTiebreaker(tiedTeams) {
 function renderStatsCard() {
   const st = S.stats || { byPlayer: {}, byRound: [], bestTurn: null };
   const card = el("div", { class: "card" });
-  card.appendChild(el("h3", {}, "Stats"));
+  card.appendChild(sectionHead("bar-chart", "Stats"));
 
   const entries = Object.keys(st.byPlayer)
     .map(pid => ({ pid, n: st.byPlayer[pid] }))
@@ -1436,7 +1477,7 @@ function renderGameOver() {
       el("td", { class: "s" }, String(t.score))
     ));
   });
-  c.appendChild(el("div", { class: "card" }, el("h3", {}, "Scores finaux"), table));
+  c.appendChild(el("div", { class: "card" }, sectionHead("trophy", "Scores finaux"), table));
 
   c.appendChild(renderStatsCard());
 
