@@ -1061,6 +1061,7 @@ function beginTurn() {
   S.currentWordId = S.pile.length ? S.pile.shift() : null;
   S.turnFound = [];
   S.snapshots = [];
+  S.turnPileEmptied = false;
   S.timeLeft = S.turnSeconds;
   S.paused = false;
   S.screen = "countdown";
@@ -1125,10 +1126,12 @@ function actionFound() {
 }
 function actionPass() {
   if (S.currentWordId == null) return;
-  snapshot();
+  const last = S.pile.length === 0;
+  if (!last) snapshot();
   serveNext();
   save();
   if (S.currentWordId == null) {
+    S.turnPileEmptied = true;
     endTurn(false);
   } else {
     updatePlaying();
@@ -1216,7 +1219,7 @@ function renderPlaying() {
   c.appendChild(el("div", { class: "btn-stack" },
     el("button", { class: "good", id: "btn-found", onclick: actionFound }, icon("check", 22), " TROUVÉ !"),
     el("div", { class: "row" },
-      el("button", { class: "neutral", id: "btn-pass", onclick: actionPass }, icon("rotate-cw", 18), " Passe"),
+      el("button", { class: "neutral", id: "btn-pass", onclick: actionPass }, icon("skip-forward", 18), " Passe"),
       el("button", { class: "secondary", id: "btn-undo", disabled: !S.snapshots.length, onclick: actionUndo }, icon("rotate-ccw", 16), " Annuler")
     ),
     el("button", { class: "ghost", style: "padding:10px", onclick: pauseTurn }, icon("pause", 20))
@@ -1261,6 +1264,9 @@ function renderTurnRecap() {
       el("span", {}, t.name)),
     document.createTextNode("  a fait deviner " + S.turnFound.length + " mot(s).")
   ));
+  if (S.turnPileEmptied) {
+    c.appendChild(el("p", { class: "hint" }, "Tous les mots du tour ont été passés."));
+  }
 
   const list = el("div", { class: "card" });
   if (!S.turnFound.length) {
