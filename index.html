@@ -71,6 +71,9 @@
       calc(var(--s4) + env(safe-area-inset-left));
     display: flex;
     flex-direction: column;
+    --fade: calc(26px + env(safe-area-inset-bottom));
+    -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - var(--fade)), transparent);
+    mask-image: linear-gradient(to bottom, #000 calc(100% - var(--fade)), transparent);
   }
 
   h1, h2, h3 { font-family: var(--font-display); font-weight: 600; }
