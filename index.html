@@ -1540,7 +1540,7 @@ function renderResume(saved) {
         render();
       }
     }, icon("play", 18), " Reprendre la partie"),
-    el("button", { class: "ghost", onclick: () => { clearSave(); S = freshState(); render(); } },
+    el("button", { class: "ghost", onclick: newGame },
       icon("rotate-ccw", 16), " Nouvelle partie")
   ));
   c.appendChild(el("div", { class: "spacer" }));
