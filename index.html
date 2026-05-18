@@ -1126,7 +1126,6 @@ function actionFound() {
 function actionPass() {
   if (S.currentWordId == null) return;
   snapshot();
-  S.pile.push(S.currentWordId);
   serveNext();
   save();
   updatePlaying();
@@ -1240,6 +1239,8 @@ function updatePlaying() {
   }
   const ps = $("#play-stat"); if (ps) ps.textContent = S.turnFound.length + " trouvé(s) · " + S.roundRemaining.length + " restants";
   const u = $("#btn-undo");   if (u) u.disabled = !S.snapshots.length;
+  const p = $("#btn-pass");   if (p) p.disabled = S.currentWordId == null;
+  const f = $("#btn-found");  if (f) f.disabled = S.currentWordId == null;
 }
 
 /* ============================================================
