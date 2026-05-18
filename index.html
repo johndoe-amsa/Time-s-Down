@@ -346,14 +346,7 @@
 
 const STORAGE_KEY = "timesdown_state_v1";
 const TEAM_COLORS = ["#ff5c7a", "#6c7bff", "#2ecc71", "#ffd23f", "#ff9f43", "#26d0ce"];
-const ROUND_CATALOG = [
-  { name: "Description libre", rule: "Fais deviner le mot en l'expliquant avec tes propres mots. Interdit : dire le mot ou un mot de la même famille." },
-  { name: "Un seul mot",       rule: "Tu n'as droit qu'à UN SEUL mot pour faire deviner. Pas de geste, pas de bruitage." },
-  { name: "Mime",              rule: "Aucune parole : tu dois faire deviner uniquement en mimant." },
-  { name: "Son & bruitage",    rule: "Aucun mot : uniquement des sons, bruitages ou onomatopées." },
-  { name: "Un mot + un geste", rule: "Un seul mot autorisé, accompagné d'un seul geste. Pas de phrase." },
-];
-function roundDef(i) { return ROUND_CATALOG[S.rounds[i]] || ROUND_CATALOG[0]; }
+function roundDef(i) { return S.rounds[i] || { name: "Manche " + (i + 1) }; }
 function roundCount() { return S.rounds.length; }
 
 // Banque de secours : pioche aléatoire si un joueur sèche.
@@ -383,7 +376,7 @@ function freshState() {
     teams: [],              // [{id, name, color, playerIds:[], score, descPtr}]
     wordsPerPlayer: 5,
     turnSeconds: 30,
-    rounds: [0, 1, 2],      // indices into ROUND_CATALOG, played in this order
+    rounds: [{ name: "Description libre" }, { name: "Un seul mot" }, { name: "Mime" }],
     words: [],              // [{id, text}]
     // word entry
     entryIndex: 0,          // index into players for the entry gate
@@ -414,7 +407,12 @@ function load() {
     if (!raw) return null;
     const s = JSON.parse(raw);
     if (s && typeof s === "object" && s.screen) {
-      if (!Array.isArray(s.rounds) || !s.rounds.length) s.rounds = [0, 1, 2];
+      if (!Array.isArray(s.rounds) || !s.rounds.length) {
+        s.rounds = [{ name: "Description libre" }, { name: "Un seul mot" }, { name: "Mime" }];
+      } else if (typeof s.rounds[0] === "number") {
+        const OLD = ["Description libre", "Un seul mot", "Mime", "Son & bruitage", "Un mot + un geste"];
+        s.rounds = s.rounds.map(i => ({ name: OLD[i] || "Manche" }));
+      }
       if (typeof s.deadline !== "number") s.deadline = 0;
       if (!s.stats || typeof s.stats !== "object") s.stats = { byPlayer: {}, byRound: [], bestTurn: null };
       return s;
@@ -622,34 +620,87 @@ function renderSetup() {
     v => { S.turnSeconds = v; save(); refreshStart(); }, 5));
   c.appendChild(sCard);
 
-  /* Rounds selection */
+  /* Rounds */
   const rCard = el("div", { class: "card" });
-  rCard.appendChild(el("h3", {}, "Manches"));
+  const rHeader = el("h3", {});
+  rCard.appendChild(rHeader);
   rCard.appendChild(el("p", { class: "hint", style: "margin:-4px 0 12px" },
-    "Les mêmes mots sont rejoués à chaque manche, de plus en plus dur. Choisis-en au moins une."));
-  ROUND_CATALOG.forEach((rd, idx) => {
-    const on = S.rounds.includes(idx);
-    rCard.appendChild(el("div", {
-      class: "player-line press",
-      style: "cursor:pointer;border-color:" + (on ? "var(--accent)" : "var(--line)"),
-      role: "button", "aria-pressed": on ? "true" : "false",
-      onclick: () => {
-        if (S.rounds.includes(idx)) {
-          if (S.rounds.length <= 1) return;
-          S.rounds = S.rounds.filter(x => x !== idx);
-        } else {
-          S.rounds = S.rounds.concat(idx).sort((a, b) => a - b);
+    "Les mêmes mots sont rejoués à chaque manche. Choisis-en au moins une."));
+
+  const PRESETS = ["Description libre", "Un seul mot", "Mime"];
+  const roundListEl = el("div");
+  function buildRoundList() {
+    rHeader.textContent = "Manches (" + S.rounds.length + ")";
+    roundListEl.innerHTML = "";
+
+    PRESETS.forEach(name => {
+      const on = S.rounds.some(r => r.name === name);
+      roundListEl.appendChild(el("div", {
+        class: "player-line press",
+        style: "cursor:pointer;border-color:" + (on ? "var(--accent)" : "var(--line)"),
+        role: "button", "aria-pressed": on ? "true" : "false",
+        onclick: () => {
+          if (on) {
+            if (S.rounds.length <= 1) return;
+            S.rounds = S.rounds.filter(r => r.name !== name);
+          } else {
+            const pi = PRESETS.indexOf(name);
+            let insertAt = 0;
+            for (let i = 0; i < S.rounds.length; i++) {
+              const ri = PRESETS.indexOf(S.rounds[i].name);
+              if (ri !== -1 && ri < pi) insertAt = i + 1;
+            }
+            S.rounds.splice(insertAt, 0, { name });
+          }
+          save(); buildRoundList(); refreshStart();
         }
-        save(); render();
-      }
-    },
-      el("span", { class: "name" }, rd.name),
-      el("span", {
-        class: "pill",
-        style: on ? "background:var(--accent);color:#2a1850;border-color:transparent" : ""
-      }, on ? "✓" : "—")
-    ));
+      },
+        el("span", { class: "name" }, name),
+        el("span", {
+          class: "pill",
+          style: on ? "background:var(--accent);color:#2a1850;border-color:transparent" : ""
+        }, on ? "✓" : "—")
+      ));
+    });
+
+    const customs = S.rounds.filter(r => !PRESETS.includes(r.name));
+    customs.forEach(rd => {
+      roundListEl.appendChild(el("div", { class: "player-line", style: "margin-top:4px" },
+        el("span", { class: "name" }, "✦ " + rd.name),
+        el("button", {
+          class: "x-btn",
+          onclick: () => {
+            S.rounds = S.rounds.filter(r => r !== rd);
+            save(); buildRoundList(); refreshStart();
+          }
+        }, "✕")
+      ));
+    });
+  }
+  buildRoundList();
+  rCard.appendChild(roundListEl);
+
+  const roundInp = el("input", {
+    type: "text", placeholder: "Nom de la manche personnalisée…",
+    autocomplete: "off", autocapitalize: "words", enterkeyhint: "done",
+    style: "margin-top:10px"
   });
+  const roundErr = el("p", { class: "err" });
+  function doCreateRound() {
+    const name = roundInp.value.trim();
+    if (!name) { roundErr.textContent = "Donne un nom à la manche."; return; }
+    if (S.rounds.some(r => r.name === name)) { roundErr.textContent = "Cette manche existe déjà."; return; }
+    roundErr.textContent = "";
+    S.rounds.push({ name });
+    roundInp.value = "";
+    save(); buildRoundList(); refreshStart();
+  }
+  roundInp.addEventListener("keydown", e => { if (e.key === "Enter") doCreateRound(); });
+  rCard.appendChild(el("div", { class: "row", style: "margin-top:6px" },
+    roundInp,
+    el("button", { class: "secondary", style: "flex:none;width:auto;padding:13px 18px", onclick: doCreateRound }, "+ Créer")
+  ));
+  rCard.appendChild(roundErr);
   c.appendChild(rCard);
 
   /* Validation + start */
@@ -957,8 +1008,7 @@ function renderRoundIntro() {
   c.appendChild(scoreboardHeader());
   c.appendChild(el("div", { class: "spacer" }));
   c.appendChild(el("span", { class: "pill" }, "Manche " + (S.roundIndex + 1) + " / " + roundCount()));
-  c.appendChild(el("h1", { style: "margin:14px 0 6px" }, r.name));
-  c.appendChild(el("p", { style: "max-width:420px;margin:0 auto 18px" }, r.rule));
+  c.appendChild(el("h1", { style: "margin:14px 0 18px" }, r.name));
   c.appendChild(el("div", { class: "card" },
     el("p", { class: "hint", style: "margin:0 0 4px" }, "C'est l'équipe qui commence :"),
     el("h3", { style: "margin:0", html: '<span class="dot" style="background:' + t.color + ';vertical-align:middle"></span> ' + escapeHtml(t.name) }),
@@ -985,8 +1035,7 @@ function renderTurnReady() {
   c.appendChild(el("div", { class: "big-num", style: "font-size:2.4rem;color:var(--accent)" }, describer));
   c.appendChild(el("p", {}, "de faire deviner à son équipe."));
   c.appendChild(el("div", { class: "card" },
-    el("p", { class: "hint", style: "margin:0 0 4px" }, r.rule),
-    el("p", { class: "hint", style: "margin:8px 0 0" },
+    el("p", { class: "hint", style: "margin:0" },
       S.roundRemaining.length + " mots restants · " + S.turnSeconds + "s")
   ));
   c.appendChild(el("button", { class: "good", onclick: beginTurn }, "▶ JOUER"));
@@ -1114,16 +1163,12 @@ function rollbackTurn() {
 function renderPlaying() {
   const c = el("div", { class: "screen" });
   c.appendChild(scoreboardHeader({ compact: true }));
-  c.appendChild(el("div", { class: "center", style: "margin-bottom:6px" },
-    el("span", { class: "pill" }, "Manche " + (S.roundIndex + 1) + " · " + roundDef(S.roundIndex).name)));
 
   if (S.paused) {
     c.appendChild(el("div", { class: "spacer" }));
     c.appendChild(el("div", { class: "center" },
       el("div", { class: "big-num", style: "font-size:2rem;color:var(--muted)" }, "⏸ EN PAUSE")));
-    c.appendChild(el("p", { class: "hint center" },
-      "Le mot est masqué. Reste " + S.timeLeft + "s · " +
-      S.turnFound.length + " trouvé(s) ce tour."));
+    c.appendChild(el("p", { class: "hint center" }, "Reste " + S.timeLeft + "s"));
     c.appendChild(el("div", { class: "spacer" }));
     c.appendChild(el("div", { class: "btn-stack" },
       el("button", { class: "good", onclick: resumeTurn }, "▶ Reprendre"),
@@ -1150,10 +1195,10 @@ function renderPlaying() {
       S.currentWordId != null ? wordText(S.currentWordId) : "—")
   ));
 
-  c.appendChild(el("div", { class: "stat-row" },
-    stat("Trouvés (ce tour)", S.turnFound.length, "found-stat"),
-    stat("Restants", S.roundRemaining.length, "rem-stat")
-  ));
+  c.appendChild(el("p", {
+    id: "play-stat", class: "hint center",
+    style: "margin:4px 0 0;font-size:.82rem"
+  }, S.turnFound.length + " trouvé(s) · " + S.roundRemaining.length + " restants"));
 
   c.appendChild(el("div", { class: "spacer" }));
 
@@ -1163,7 +1208,7 @@ function renderPlaying() {
       el("button", { class: "neutral", id: "btn-pass", onclick: actionPass }, "↷ Passe"),
       el("button", { class: "secondary", id: "btn-undo", disabled: !S.snapshots.length, onclick: actionUndo }, "↶ Annuler")
     ),
-    el("button", { class: "ghost", onclick: pauseTurn }, "⏸ Pause")
+    el("button", { class: "ghost", style: "padding:10px", onclick: pauseTurn }, "⏸")
   ));
   return c;
 }
@@ -1185,8 +1230,7 @@ function updatePlaying() {
       w.style.animation = "";
     }
   }
-  const f = $("#found-stat"); if (f) f.textContent = S.turnFound.length;
-  const r = $("#rem-stat");   if (r) r.textContent = S.roundRemaining.length;
+  const ps = $("#play-stat"); if (ps) ps.textContent = S.turnFound.length + " trouvé(s) · " + S.roundRemaining.length + " restants";
   const u = $("#btn-undo");   if (u) u.disabled = !S.snapshots.length;
 }
 
@@ -1293,7 +1337,7 @@ function startTiebreaker(tiedTeams) {
   S._origRounds = S._origRounds || S.rounds.slice();
   S.teams = tiedTeams.map(t => Object.assign({}, t, { score: 0, descPtr: 0 }));
   S.tiebreak = true;
-  S.rounds = [ (S._origRounds && S._origRounds[0] != null) ? S._origRounds[0] : 0 ];
+  S.rounds = [ S._origRounds && S._origRounds[0] ? S._origRounds[0] : { name: "Description libre" } ];
   S.roundIndex = 0;
   S.teamPos = 0;
   S.stats = { byPlayer: {}, byRound: [], bestTurn: null };
